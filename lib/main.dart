@@ -1,13 +1,13 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 import 'services/firestore_service.dart';
 import 'screens/customer/explore_screen.dart';
 import 'screens/admin/admin_rooms_screen.dart';
-
+import 'providers/auth_provider.dart';
+import 'screens/auth/auth_gate.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -24,27 +24,23 @@ class LuxeStayApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [
-        Provider<FirestoreService>(
-          create: (_) => FirestoreService(),
-        ),
-      ],
-      child: MaterialApp(
-        title: 'LuxeStay',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFFD97706),
-            primary: const Color(0xFF0F172A),
-            secondary: const Color(0xFFD97706),
-          ),
-          textTheme: GoogleFonts.plusJakartaSansTextTheme(),
-        ),
-        home: const MainNavigationScreen(),
-      ),
-    );
+  providers: [
+    Provider<FirestoreService>(
+      create: (_) => FirestoreService(),
+    ),
+    ChangeNotifierProvider<AuthProvider>(
+      create: (_) => AuthProvider(),
+    ),
+  ],
+  child: MaterialApp(
+    title: 'LuxeStay',
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      // ...
+    ),
+    home: const AuthGate(),
+  ),
+);
   }
 }
 

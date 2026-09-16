@@ -10,6 +10,7 @@ class Property {
     required this.reviewCount,
     required this.pricePerNight,
     required this.amenities,
+    required this.category,
   });
 
   final String id;
@@ -20,6 +21,7 @@ class Property {
   final int reviewCount;
   final int pricePerNight;
   final List<String> amenities;
+  final String category;
 
   factory Property.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> document,
@@ -34,7 +36,10 @@ class Property {
       rating: (data['rating'] as num?)?.toDouble() ?? 0,
       reviewCount: (data['reviewCount'] as num?)?.toInt() ?? 0,
       pricePerNight: (data['pricePerNight'] as num?)?.toInt() ?? 0,
-      amenities: List<String>.from(data['amenities'] as List? ?? const []),
+      amenities: List<String>.from(
+        data['amenities'] as List? ?? const [],
+      ),
+      category: data['category'] as String? ?? '',
     );
   }
 
@@ -46,5 +51,6 @@ class Property {
         'reviewCount': reviewCount,
         'pricePerNight': pricePerNight,
         'amenities': amenities,
+        'category': category,
       };
 }

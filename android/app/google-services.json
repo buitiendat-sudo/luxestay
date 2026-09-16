@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "838248232956",
+    "project_id": "luxestay-1309f",
+    "storage_bucket": "luxestay-1309f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:838248232956:android:b160579b27eeee4e26e479",
+        "android_client_info": {
+          "package_name": "com.example.luxestay"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD1W8UyifKZw6Nlnsxk4Qxkjt8sffCqRSc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

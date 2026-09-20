@@ -8,6 +8,9 @@ import 'screens/customer/explore_screen.dart';
 import 'screens/admin/admin_rooms_screen.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/auth_gate.dart';
+import 'screens/customer/trips_screen.dart';
+import 'screens/customer/favorites_screen.dart';
+import 'screens/customer/account_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -57,12 +60,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final bool _isAdminMode = false;
 
   final List<Widget> _customerScreens = const [
-    ExploreScreen(),
-    Center(child: Text('Tìm kiếm')),
-    Center(child: Text('Chuyến đi')),
-    Center(child: Text('Yêu thích')),
-    Center(child: Text('Tài khoản')),
-  ];
+      ExploreScreen(),
+      TripsScreen(),
+      FavoritesScreen(),
+      AccountScreen(),
+    ];
 
   @override
   Widget build(BuildContext context) {
@@ -84,10 +86,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             icon: Icon(Icons.explore_outlined),
             selectedIcon: Icon(Icons.explore),
             label: 'Khám phá',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.search),
-            label: 'Tìm kiếm',
           ),
           NavigationDestination(
             icon: Icon(Icons.work_outline),

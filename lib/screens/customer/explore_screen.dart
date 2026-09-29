@@ -1151,6 +1151,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Future<void> _showCategoryPicker() async {
     final selected = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
@@ -1158,52 +1161,61 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       ),
       builder: (context) {
-        return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.symmetric(
-              vertical: 12,
-            ),
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  10,
-                  20,
-                  14,
-                ),
-                child: Text(
-                  'Loại hình lưu trú',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.72,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) {
+            return ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(
+                0,
+                4,
+                0,
+                12,
+              ),
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    10,
+                    20,
+                    14,
+                  ),
+                  child: Text(
+                    'Loại hình lưu trú',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              ),
-              ..._categories.map(
-                (category) {
-                  return ListTile(
-                    leading: Icon(
-                      category == _selectedCategory
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_off,
-                      color: category ==
-                              _selectedCategory
-                          ? _navy
-                          : Colors.grey,
-                    ),
-                    title: Text(category),
-                    onTap: () {
-                      Navigator.pop(
-                        context,
-                        category,
-                      );
-                    },
-                  );
-                },
-              ),
-            ],
-          ),
+                ..._categories.map(
+                  (category) {
+                    return ListTile(
+                      leading: Icon(
+                        category == _selectedCategory
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_off,
+                        color: category ==
+                                _selectedCategory
+                            ? _navy
+                            : Colors.grey,
+                      ),
+                      title: Text(category),
+                      onTap: () {
+                        Navigator.pop(
+                          context,
+                          category,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+            );
+          },
         );
       },
     );

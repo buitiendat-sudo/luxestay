@@ -7,6 +7,7 @@ import '../../models/booking.dart';
 import '../../models/property.dart';
 import '../../models/room.dart';
 import '../../services/firestore_service.dart';
+import 'payment_screen.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({
@@ -131,7 +132,11 @@ class _BookingScreenState extends State<BookingScreen> {
         return;
       }
 
-      await _showSuccessDialog(bookingId);
+      await Navigator.of(context).pushReplacement<void, void>(
+        MaterialPageRoute<void>(
+          builder: (_) => PaymentScreen(bookingId: bookingId),
+        ),
+      );
     } catch (e) {
       if (!mounted) {
         return;
@@ -147,56 +152,6 @@ class _BookingScreenState extends State<BookingScreen> {
         });
       }
     }
-  }
-
-  Future<void> _showSuccessDialog(
-    String bookingId,
-  ) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Row(
-            children: [
-              Icon(
-                Icons.check_circle,
-                color: Color(0xFF10B981),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Đặt phòng thành công',
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            'Mã đặt phòng của bạn:\n\n$bookingId',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-
-                if (mounted) {
-                  Navigator.pop(context);
-                }
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: _navy,
-              ),
-              child: const Text(
-                'Hoàn tất',
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   void _showMessage(String message) {
@@ -269,8 +224,6 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
             const SizedBox(height: 10),
             _buildPriceCard(),
-            const SizedBox(height: 24),
-            _buildPaymentOptions(),
             const SizedBox(height: 18),
             _buildNotice(),
           ],
@@ -929,138 +882,6 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  Widget _buildPaymentOptions() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Phương thức thanh toán',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              _BookingTag('MÔ PHỎNG'),
-            ],
-          ),
-          const SizedBox(height: 13),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF1FF),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.radio_button_checked,
-                      color: Colors.black,
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Thẻ tín dụng / Ghi nợ quốc tế',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    _BookingTag('VISA / MC'),
-                  ],
-                ),
-                Padding(
-                  padding: EdgeInsets.only(
-                    left: 34,
-                    top: 3,
-                  ),
-                  child: Text(
-                    'Hỗ trợ Visa, Mastercard, JCB',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 12),
-                _CardPreview(),
-              ],
-            ),
-          ),
-          const SizedBox(height: 13),
-          _paymentRow(
-            Icons.radio_button_off,
-            'Ví điện tử / QR',
-            'MoMo, ZaloPay, VNPay QR',
-          ),
-          const SizedBox(height: 12),
-          _paymentRow(
-            Icons.radio_button_off,
-            'Thanh toán khi nhận phòng',
-            'Thanh toán trực tiếp tại quầy lễ tân',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _paymentRow(
-    IconData icon,
-    String title,
-    String subtitle,
-  ) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          color: const Color(0xFFC8DDFC),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Icon(
-          Icons.qr_code_2,
-          size: 16,
-          color: Color(0xFF64748B),
-        ),
-      ],
-    );
-  }
-
   Widget _buildNotice() {
     return Container(
       padding: const EdgeInsets.all(15),
@@ -1205,56 +1026,3 @@ class _BookingTag extends StatelessWidget {
   }
 }
 
-class _CardPreview extends StatelessWidget {
-  const _CardPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Thẻ mô phỏng',
-            style: TextStyle(
-              fontSize: 9,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            '••••  ••••  ••••  4242',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-            ),
-          ),
-          SizedBox(height: 7),
-          Row(
-            children: [
-              Text(
-                'Hết hạn: 08/28',
-                style: TextStyle(
-                  fontSize: 9,
-                ),
-              ),
-              Spacer(),
-              Text(
-                'CVV: •••',
-                style: TextStyle(
-                  fontSize: 9,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}

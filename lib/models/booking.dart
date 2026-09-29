@@ -15,6 +15,8 @@ class Booking {
     required this.pricePerNight,
     required this.totalNights,
     required this.totalPrice,
+    this.paymentMethod = 'credit_card',
+    this.paymentStatus = 'unpaid',
     required this.status,
     required this.createdAt,
   });
@@ -35,6 +37,8 @@ class Booking {
   final int pricePerNight;
   final int totalNights;
   final int totalPrice;
+  final String paymentMethod;
+  final String paymentStatus;
 
   final String status;
   final DateTime? createdAt;
@@ -58,6 +62,8 @@ class Booking {
       pricePerNight: _parseInt(data['pricePerNight'], 0),
       totalNights: _parseInt(data['totalNights'], 1),
       totalPrice: _parseInt(data['totalPrice'], 0),
+      paymentMethod: data['paymentMethod']?.toString() ?? 'credit_card',
+      paymentStatus: data['paymentStatus']?.toString() ?? 'unpaid',
       status: data['status']?.toString() ?? 'pending',
       createdAt: _readNullableDate(data['createdAt']),
     );
@@ -77,6 +83,8 @@ class Booking {
       'pricePerNight': pricePerNight,
       'totalNights': totalNights,
       'totalPrice': totalPrice,
+      'paymentMethod': paymentMethod,
+      'paymentStatus': paymentStatus,
       'status': status,
       'createdAt': createdAt == null
           ? FieldValue.serverTimestamp()

@@ -23,16 +23,7 @@ class AuthService {
       throw Exception('Không thể tạo tài khoản');
     }
 
-    // 2. Lưu thông tin người dùng vào Firestore
-    await _db.collection('users').doc(user.uid).set({
-      'uid': user.uid,
-      'name': name.trim(),
-      'email': email.trim(),
-      'role': 'customer',
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    // 3. Cập nhật tên hiển thị trên Firebase Auth
+    // Cập nhật tên hiển thị trên Firebase Auth.
     await user.updateDisplayName(name.trim());
 
     return credential;

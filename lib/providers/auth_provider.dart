@@ -117,8 +117,10 @@ class AuthProvider extends ChangeNotifier {
           .doc(_user!.uid)
           .set(
         {
+          'uid': _user!.uid,
+          'name': name.trim(),
           'displayName': name,
-          'email': email,
+          'email': email.trim(),
           'phone': '',
           'avatar': '',
           'role': 'CUSTOMER',

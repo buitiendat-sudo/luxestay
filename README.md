@@ -1,17 +1,34 @@
-# luxestay
+# LuxeStay
 
-A new Flutter project.
+Flutter app for resort discovery, booking and admin operations, backed by Firebase Authentication and Cloud Firestore.
 
-## Getting Started
+## Quick Start
 
-This project is a starting point for a Flutter application.
+```powershell
+flutter pub get
+flutter run -d chrome
+```
 
-A few resources to get you started if this is your first Flutter project:
+Validate changes with:
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```powershell
+flutter analyze
+flutter test
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+The current Firebase project is `luxestay-1309f`. Firebase options are currently configured for Android and Web. Run `flutterfire configure` before enabling another platform.
+
+## Project Areas
+
+- `lib/screens/customer/`: customer booking experience.
+- `lib/screens/admin/`: admin dashboard and management screens.
+- `lib/services/`: Firebase/Auth/Firestore access.
+- `lib/providers/`: app state and auth state.
+- `lib/models/`: Firestore data models.
+- `lib/seed_data.dart`: development-only sample data; it is not run automatically.
+
+## Maintainer Documentation
+
+Read [MAINTAINER_NOTES.md](MAINTAINER_NOTES.md) before changing Firebase, authentication, bookings, rooms or admin permissions. It documents the current Firestore schema, known risks, unfinished features, platform limitations and a debugging checklist.
+
+The most important open items are Firestore Rules, the split room schema, server-side booking/price validation, and the distinction between seeded Firestore profiles and real Firebase Auth accounts.

@@ -22,7 +22,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   // ============================================================
 
   static const Color _navy = Color(0xFF0F172A);
-  static const Color _background = Color(0xFFF8F7F3);
+  static const Color _background = Color(0xFFF8F9FF);
 
   // ============================================================
   // SEARCH / FILTER
@@ -541,55 +541,24 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         20,
-        20,
-        20,
         12,
+        20,
+        8,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'LuxeStay',
-                  style: TextStyle(
-                    color: _navy,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Tìm nơi nghỉ dưỡng lý tưởng',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.grey.shade200,
-              ),
-            ),
-            child: const Icon(
-              Icons.notifications_none_rounded,
-              color: _navy,
-            ),
-          ),
-        ],
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(width: 30, height: 30, decoration: BoxDecoration(color: _navy, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.home_outlined, color: Color(0xFFF59E0B), size: 19)),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('LuxeStay', style: TextStyle(color: _navy, fontSize: 17, fontWeight: FontWeight.w800))),
+          const Icon(Icons.notifications_none_rounded, color: _navy),
+          const SizedBox(width: 16),
+          const CircleAvatar(radius: 16, backgroundImage: NetworkImage('https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100')),
+        ]),
+        const SizedBox(height: 15),
+        const Text('KỲ NGHỈ THƯỜNG LƯU', style: TextStyle(fontSize: 9, letterSpacing: .7, color: Color(0xFF904D00), fontWeight: FontWeight.w700)),
+        const SizedBox(height: 2),
+        Row(children: [const Text('Xin chào, Quý khách', style: TextStyle(color: _navy, fontSize: 19, fontWeight: FontWeight.w800)), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5), decoration: BoxDecoration(color: const Color(0xFFE8EEF9), borderRadius: BorderRadius.circular(10)), child: const Text('💎 Thành viên Black', style: TextStyle(fontSize: 9, color: Color(0xFF475569), fontWeight: FontWeight.w700)))])
+      ]),
     );
   }
 
@@ -600,163 +569,46 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget _buildSearchBox() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        16,
-        8,
-        16,
-        10,
+        12, 2, 12, 10,
       ),
       child: Container(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: Colors.grey.shade200,
-          ),
+          borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, 5),
             ),
           ],
         ),
-        child: TextField(
-          onChanged: (value) {
-            setState(() {
-              _searchQuery = value;
-            });
-          },
-          decoration: InputDecoration(
-            hintText:
-                'Tìm resort, khách sạn, địa điểm...',
-            prefixIcon: const Icon(
-              Icons.search,
-              color: _navy,
-            ),
-            suffixIcon: _searchQuery.isEmpty
-                ? null
-                : IconButton(
-                    onPressed: () {
-                      setState(() {
-                        _searchQuery = '';
-                      });
-                    },
-                    icon: const Icon(Icons.clear),
-                  ),
-            border: InputBorder.none,
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding:
-                const EdgeInsets.symmetric(
-              vertical: 14,
-            ),
-          ),
-        ),
+        child: Column(children: [
+          _searchLine(Icons.location_on_rounded, 'ĐIỂM ĐẾN', _selectedDestination == 'Tất cả điểm đến' ? 'Đà Nẵng, Việt Nam' : _selectedDestination, _showDestinationPicker),
+          const SizedBox(height: 8),
+          _searchLine(Icons.calendar_month_outlined, 'THỜI GIAN LƯU TRÚ', _selectedDateRange == null ? '15 Th04 – 18 Th04, 2025   3 đêm' : _formatDateRange(_selectedDateRange!), _selectDateRange),
+          const SizedBox(height: 8),
+          _searchLine(Icons.group_outlined, 'SỐ LƯỢNG KHÁCH & PHÒNG', '$_adults người lớn, $_rooms phòng', _showGuestPicker),
+          const SizedBox(height: 9),
+          Row(children: [Expanded(child: Container(alignment: Alignment.center, height: 32, decoration: BoxDecoration(color: const Color(0xFFF0F4FF), borderRadius: BorderRadius.circular(8)), child: const Text('🔵 Tôi đi công tác', style: TextStyle(fontSize: 10)))), const SizedBox(width: 6), Expanded(child: Container(alignment: Alignment.center, height: 32, decoration: BoxDecoration(color: const Color(0xFFF0F4FF), borderRadius: BorderRadius.circular(8)), child: const Text('🟤 Ưu đãi gia đình', style: TextStyle(fontSize: 10))))]),
+          const SizedBox(height: 12),
+          SizedBox(width: double.infinity, height: 50, child: FilledButton.icon(onPressed: () => setState(() {}), icon: const Icon(Icons.search), label: const Text('Tìm kiếm khách sạn (120+ chỗ nghỉ)', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)), style: FilledButton.styleFrom(backgroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
+        ]),
       ),
     );
   }
+
+  Widget _searchLine(IconData icon, String label, String value, VoidCallback onTap) => InkWell(onTap: onTap, child: Container(height: 53, padding: const EdgeInsets.symmetric(horizontal: 12), decoration: BoxDecoration(color: const Color(0xFFF0F4FF), borderRadius: BorderRadius.circular(8)), child: Row(children: [CircleAvatar(radius: 15, backgroundColor: const Color(0xFFDDEBFF), child: Icon(icon, size: 17, color: _navy)), const SizedBox(width: 10), Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 8, color: Color(0xFF64748B), fontWeight: FontWeight.w700)), Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis)])), const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF64748B))])));
 
   // ============================================================
   // FILTER SECTION
   // ============================================================
 
   Widget _buildFilterSection() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        4,
-        16,
-        8,
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _FilterButton(
-                  icon: Icons.location_on_outlined,
-                  title: _selectedDestination,
-                  onTap: _showDestinationPicker,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _FilterButton(
-                  icon: Icons.category_outlined,
-                  title: _selectedCategory,
-                  onTap: _showCategoryPicker,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 8),
-
-          Row(
-            children: [
-              Expanded(
-                child: _FilterButton(
-                  icon: Icons.calendar_month_outlined,
-                  title: _selectedDateRange == null
-                      ? 'Ngày'
-                      : _formatDateRange(
-                          _selectedDateRange!,
-                        ),
-                  onTap: _selectDateRange,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _FilterButton(
-                  icon: Icons.people_outline,
-                  title:
-                      '$_adults người · $_rooms phòng',
-                  onTap: _showGuestPicker,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          SizedBox(
-            height: 40,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _TripChip(
-                  label: 'Công tác',
-                  icon: Icons.business_center_outlined,
-                  selected: _businessTrip,
-                  onSelected: (selected) {
-                    setState(() {
-                      _businessTrip = selected;
-                    });
-                  },
-                ),
-                const SizedBox(width: 8),
-                _TripChip(
-                  label: 'Gia đình',
-                  icon: Icons.family_restroom_outlined,
-                  selected: _familyTrip,
-                  onSelected: (selected) {
-                    setState(() {
-                      _familyTrip = selected;
-                    });
-                  },
-                ),
-                const SizedBox(width: 8),
-                _SortChip(
-                  title: _sortOption,
-                  onTap: _showSortPicker,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    return SizedBox(height: 48, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
+      _TripChip(label: 'Tất cả', icon: Icons.visibility, selected: true, onSelected: (_) {}), const SizedBox(width: 8),
+      _TripChip(label: 'Resort ven biển', icon: Icons.beach_access_outlined, selected: _selectedCategory == 'Resort', onSelected: (_) => _showCategoryPicker()), const SizedBox(width: 8),
+      _TripChip(label: 'Villa riêng tư', icon: Icons.villa_outlined, selected: false, onSelected: (_) => _showCategoryPicker()),
+    ]));
   }
 
   // ============================================================
@@ -764,39 +616,112 @@ class _ExploreScreenState extends State<ExploreScreen> {
   // ============================================================
 
   Widget _buildResultHeader(int count) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        20,
-        14,
-        20,
-        12,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              '$count nơi lưu trú',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: _navy,
+  final hasFilter = _searchQuery.isNotEmpty ||
+      _selectedDestination != 'Tất cả điểm đến' ||
+      _selectedCategory != 'Tất cả' ||
+      _businessTrip ||
+      _familyTrip;
+
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(
+      20,
+      14,
+      20,
+      12,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Ưu đãi độc quyền hôm nay',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: _navy,
+                ),
               ),
             ),
-          ),
-          if (_searchQuery.isNotEmpty ||
-              _selectedDestination !=
-                  'Tất cả điểm đến' ||
-              _selectedCategory != 'Tất cả' ||
-              _businessTrip ||
-              _familyTrip)
-            TextButton(
-              onPressed: _resetFilters,
-              child: const Text('Xóa bộ lọc'),
+
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: _showSortPicker,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 9,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.swap_vert,
+                      size: 15,
+                      color: _navy,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _sortOption,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: _navy,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-        ],
-      ),
-    );
-  }
+          ],
+        ),
+
+        const SizedBox(height: 5),
+
+        Row(
+          children: [
+            Text(
+              '$count chỗ nghỉ phù hợp',
+              style: const TextStyle(
+                fontSize: 10,
+                color: Color(0xFF64748B),
+              ),
+            ),
+
+            const Spacer(),
+
+            if (hasFilter)
+              TextButton(
+                onPressed: _resetFilters,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 30),
+                  tapTargetSize:
+                      MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Xóa bộ lọc',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: Color(0xFFD97706),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
   // ============================================================
   // PROPERTY CARD
@@ -1481,70 +1406,8 @@ class _GuestRow extends StatelessWidget {
 // FILTER BUTTON
 // ============================================================
 
-class _FilterButton extends StatelessWidget {
-  const _FilterButton({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
 
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
 
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 46,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.grey.shade200,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                size: 19,
-                color: _ExploreScreenState._navy,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.keyboard_arrow_down,
-                size: 18,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// TRIP CHIP
-// ============================================================
 
 class _TripChip extends StatelessWidget {
   const _TripChip({
@@ -1595,46 +1458,7 @@ class _TripChip extends StatelessWidget {
 // ============================================================
 // SORT CHIP
 // ============================================================
-
-class _SortChip extends StatelessWidget {
-  const _SortChip({
-    required this.title,
-    required this.onTap,
-  });
-
-  final String title;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ActionChip(
-      onPressed: onTap,
-      avatar: const Icon(
-        Icons.swap_vert,
-        size: 16,
-      ),
-      label: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      backgroundColor: Colors.white,
-      side: BorderSide(
-        color: Colors.grey.shade200,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// EMPTY SEARCH
-// ============================================================
-
+ 
 class _EmptySearchResult extends StatelessWidget {
   const _EmptySearchResult();
 

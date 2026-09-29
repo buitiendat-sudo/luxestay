@@ -1051,7 +1051,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           ),
                         ),
                         child: const Text(
-                          'Xem phòng',
+                          'Xem chi tiết',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight:

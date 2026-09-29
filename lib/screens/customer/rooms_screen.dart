@@ -1,6 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/property.dart';
 import '../../models/room.dart';
@@ -23,6 +26,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
   static const Color _navy = Color(0xFF0F172A);
   static const Color _gold = Color(0xFFD97706);
   static const Color _background = Color(0xFFF8F9FF);
+  static const String _googleMapsApiKey =
+      String.fromEnvironment('GOOGLE_MAPS_API_KEY');
 
   int _selected = 0;
 
@@ -52,6 +57,15 @@ class _RoomsScreenState extends State<RoomsScreen> {
                 ),
                 SliverToBoxAdapter(
                   child: _propertyInfo(),
+                ),
+                SliverToBoxAdapter(
+                  child: _descriptionSection(),
+                ),
+                SliverToBoxAdapter(
+                  child: _locationSection(),
+                ),
+                SliverToBoxAdapter(
+                  child: _reviewsSection(),
                 ),
                 SliverToBoxAdapter(
                   child: _dates(),
@@ -468,6 +482,375 @@ class _RoomsScreenState extends State<RoomsScreen> {
         ],
       ),
     );
+  }
+
+  Widget _descriptionSection() {
+    final description = widget.property.description.trim().isNotEmpty
+        ? widget.property.description.trim()
+        : '${widget.property.name} mang đến không gian nghỉ dưỡng '
+            'thoải mái tại ${widget.property.location}. '
+            'Khám phá các tiện nghi và lựa chọn phòng phù hợp cho chuyến đi.';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Mô tả',
+            style: TextStyle(
+              color: _navy,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _locationSection() {
+    final property = widget.property;
+    final address = property.address.trim().isNotEmpty
+        ? property.address.trim()
+        : property.location;
+    final hasCoordinates =
+        property.latitude != null && property.longitude != null;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Vị trí',
+            style: TextStyle(
+              color: _navy,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 9),
+          _mapPreview(address),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.place_outlined,
+                color: _gold,
+                size: 18,
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      address,
+                      style: const TextStyle(
+                        color: _navy,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (hasCoordinates)
+                      Text(
+                        '${property.latitude!.toStringAsFixed(6)}, '
+                        '${property.longitude!.toStringAsFixed(6)}',
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 10,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: _openMap,
+                child: const Text('Mở bản đồ'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mapPreview(String address) {
+    final property = widget.property;
+    final hasCoordinates =
+        property.latitude != null && property.longitude != null;
+    final center = hasCoordinates
+        ? '${property.latitude},${property.longitude}'
+        : address;
+    final mapUri = Uri.https(
+      'maps.googleapis.com',
+      '/maps/api/staticmap',
+      {
+        'center': center,
+        'zoom': '14',
+        'size': '640x300',
+        'scale': '2',
+        if (hasCoordinates)
+          'markers': 'color:red|${property.latitude},${property.longitude}',
+        'key': _googleMapsApiKey,
+      },
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: SizedBox(
+        height: 150,
+        width: double.infinity,
+        child: _googleMapsApiKey.isEmpty
+            ? _mapFallback(hasCoordinates)
+            : Image.network(
+                mapUri.toString(),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _mapFallback(hasCoordinates),
+              ),
+      ),
+    );
+  }
+
+  Widget _mapFallback(bool hasCoordinates) {
+    return ColoredBox(
+      color: const Color(0xFFEAF1F7),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.map_outlined,
+              color: Color(0xFF64748B),
+              size: 30,
+            ),
+            const SizedBox(height: 5),
+            Text(
+              hasCoordinates
+                  ? 'Nhấn “Mở bản đồ” để xem vị trí'
+                  : 'Chưa có tọa độ bản đồ',
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openMap() async {
+    final property = widget.property;
+    final query = property.latitude != null && property.longitude != null
+        ? '${property.latitude},${property.longitude}'
+        : '${property.address}, ${property.location}';
+    final uri = Uri.https(
+      'www.google.com',
+      '/maps/search/',
+      {'api': '1', 'query': query},
+    );
+
+    var opened = false;
+    try {
+      opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+    } on PlatformException {
+      opened = false;
+    }
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể mở Google Maps. Vui lòng thử lại.'),
+        ),
+      );
+    }
+  }
+
+  Widget _reviewsSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Đánh giá & nhận xét',
+            style: TextStyle(
+              color: _navy,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                widget.property.rating.toStringAsFixed(1),
+                style: const TextStyle(
+                  color: Color(0xFF2563EB),
+                  fontSize: 27,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _stars(widget.property.rating, size: 15),
+                  Text(
+                    '${widget.property.reviewCount} nhận xét',
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: context
+                .read<FirestoreService>()
+                .watchReviewsByProperty(widget.property.id),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Text(
+                  'Chưa thể tải nhận xét lúc này.',
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                  ),
+                );
+              }
+
+              final reviews = [...?snapshot.data];
+              reviews.sort(
+                (a, b) => _reviewDate(b['createdAt'])
+                    .compareTo(_reviewDate(a['createdAt'])),
+              );
+
+              if (reviews.isEmpty) {
+                return const Text(
+                  'Chưa có nhận xét cho cơ sở này.',
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                  ),
+                );
+              }
+
+              return Column(
+                children: reviews.take(3).map(_reviewCard).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reviewCard(Map<String, dynamic> review) {
+    final rating = (review['rating'] as num?)?.toDouble() ?? 0;
+    final name = review['userName']?.toString().trim();
+    final comment = review['comment']?.toString().trim() ?? '';
+    final date = _reviewDate(review['createdAt']);
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 9),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: const Color(0xFFE8ECF3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name == null || name.isEmpty ? 'Khách hàng' : name,
+                  style: const TextStyle(
+                    color: _navy,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              _stars(rating, size: 12),
+              const SizedBox(width: 4),
+              Text(
+                rating.toStringAsFixed(1),
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            comment.isEmpty ? 'Không có nội dung nhận xét.' : comment,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 11,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            DateFormat('dd/MM/yyyy').format(date),
+            style: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 9,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stars(double rating, {required double size}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        final difference = rating - index;
+        final icon = difference >= 1
+            ? Icons.star_rounded
+            : difference >= 0.5
+                ? Icons.star_half_rounded
+                : Icons.star_outline_rounded;
+        return Icon(
+          icon,
+          size: size,
+          color: const Color(0xFFF59E0B),
+        );
+      }),
+    );
+  }
+
+  DateTime _reviewDate(dynamic value) {
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value) ?? DateTime(2000);
+    if (value is Timestamp) return value.toDate();
+    return DateTime(2000);
   }
 
   // ============================================================

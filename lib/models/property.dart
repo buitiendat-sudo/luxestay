@@ -11,6 +11,10 @@ class Property {
     required this.pricePerNight,
     required this.amenities,
     required this.category,
+    this.description = '',
+    this.address = '',
+    this.latitude,
+    this.longitude,
   });
 
   final String id;
@@ -22,6 +26,10 @@ class Property {
   final int pricePerNight;
   final List<String> amenities;
   final String category;
+  final String description;
+  final String address;
+  final double? latitude;
+  final double? longitude;
 
   factory Property.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> document,
@@ -40,6 +48,10 @@ class Property {
         data['amenities'] as List? ?? const [],
       ),
       category: data['category'] as String? ?? '',
+      description: data['description'] as String? ?? '',
+      address: data['address'] as String? ?? '',
+      latitude: (data['latitude'] as num?)?.toDouble(),
+      longitude: (data['longitude'] as num?)?.toDouble(),
     );
   }
 
@@ -52,5 +64,9 @@ class Property {
         'pricePerNight': pricePerNight,
         'amenities': amenities,
         'category': category,
+        'description': description,
+        'address': address,
+        'latitude': latitude,
+        'longitude': longitude,
       };
 }

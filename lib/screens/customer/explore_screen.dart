@@ -1387,10 +1387,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String _formatDateRange(
     DateTimeRange range,
   ) {
-    final formatter = DateFormat(
-      'dd/MM',
-      'vi_VN',
-    );
+    final formatter = DateFormat('dd/MM');
 
     return '${formatter.format(range.start)} - '
         '${formatter.format(range.end)}';

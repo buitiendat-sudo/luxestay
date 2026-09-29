@@ -184,18 +184,36 @@ class FirestoreService {
   // BOOKINGS - CUSTOMER
   // ============================================================
 
-  Stream<List<Booking>> getBookingsForUser(String userId) {
-    return bookings
-        .where(
-          'userId',
-          isEqualTo: userId,
-        )
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(Booking.fromFirestore)
-              .toList(growable: false),
-        );
+  Stream<List<Booking>> getBookingsForUser(
+    String userId, {
+    String? userEmail,
+  }) {
+    final userIds = <String>{userId};
+    if (userEmail != null && userEmail.trim().isNotEmpty) {
+      final email = userEmail.trim().toLowerCase();
+      userIds.add(email);
+      if (email == 'customer@luxestay.vn') {
+        userIds.add('demo-customer');
+      }
+    }
+
+    final query = userIds.length == 1
+        ? bookings.where('userId', isEqualTo: userIds.first)
+        : bookings.where('userId', whereIn: userIds.toList());
+
+    return query.snapshots().map(
+      (snapshot) {
+        final list = <Booking>[];
+        for (final doc in snapshot.docs) {
+          try {
+            list.add(Booking.fromFirestore(doc));
+          } catch (_) {
+            // Skip invalid documents so other bookings still display properly
+          }
+        }
+        return list;
+      },
+    );
   }
 
   // ============================================================

@@ -32,7 +32,6 @@ class _AccountScreenState extends State<AccountScreen> {
   @override
   void initState() {
     super.initState();
-
     _loadProfile();
   }
 
@@ -58,17 +57,20 @@ class _AccountScreenState extends State<AccountScreen> {
       final data = snapshot.data();
 
       if (data != null) {
-        _phone = data['phone'] as String? ?? '';
+        final phone = data['phone'] as String? ?? '';
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _phone = phone;
+        });
       }
     } catch (_) {
-      // Nếu chưa có document users/{uid}
-      // vẫn cho phép sử dụng tài khoản.
+      // Nếu users/{uid} chưa tồn tại,
+      // vẫn cho phép người dùng sử dụng tài khoản.
     }
-
-    if (!mounted) {
-      return;
-    }
-
   }
 
   // ============================================================
@@ -132,9 +134,9 @@ class _AccountScreenState extends State<AccountScreen> {
               sliver: SliverList(
                 delegate: SliverChildListDelegate(
                   [
-                    // ------------------------------------------
+                    // ==================================================
                     // ACCOUNT
-                    // ------------------------------------------
+                    // ==================================================
 
                     const _SectionTitle(
                       title: 'Tài khoản',
@@ -149,9 +151,7 @@ class _AccountScreenState extends State<AccountScreen> {
                           subtitle:
                               'Chỉnh sửa tên và số điện thoại',
                           onTap: () {
-                            _showEditProfile(
-                              user,
-                            );
+                            _showEditProfile(user);
                           },
                         ),
                         const _ItemDivider(),
@@ -170,9 +170,9 @@ class _AccountScreenState extends State<AccountScreen> {
 
                     const SizedBox(height: 22),
 
-                    // ------------------------------------------
+                    // ==================================================
                     // APPLICATION
-                    // ------------------------------------------
+                    // ==================================================
 
                     const _SectionTitle(
                       title: 'Ứng dụng',
@@ -221,9 +221,9 @@ class _AccountScreenState extends State<AccountScreen> {
 
                     const SizedBox(height: 22),
 
-                    // ------------------------------------------
+                    // ==================================================
                     // LOGOUT
-                    // ------------------------------------------
+                    // ==================================================
 
                     _LogoutButton(
                       onTap: () {
@@ -233,9 +233,9 @@ class _AccountScreenState extends State<AccountScreen> {
 
                     const SizedBox(height: 18),
 
-                    // ------------------------------------------
+                    // ==================================================
                     // VERSION
-                    // ------------------------------------------
+                    // ==================================================
 
                     Center(
                       child: Text(
@@ -317,10 +317,7 @@ class _AccountScreenState extends State<AccountScreen> {
             ),
             child: Row(
               children: [
-                // --------------------------------------------
                 // AVATAR
-                // --------------------------------------------
-
                 Container(
                   width: 64,
                   height: 64,
@@ -347,10 +344,7 @@ class _AccountScreenState extends State<AccountScreen> {
 
                 const SizedBox(width: 15),
 
-                // --------------------------------------------
                 // USER INFORMATION
-                // --------------------------------------------
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment:
@@ -405,10 +399,7 @@ class _AccountScreenState extends State<AccountScreen> {
 
                 const SizedBox(width: 8),
 
-                // --------------------------------------------
                 // EDIT BUTTON
-                // --------------------------------------------
-
                 Material(
                   color: Colors.white.withValues(
                     alpha: 0.12,
@@ -418,11 +409,15 @@ class _AccountScreenState extends State<AccountScreen> {
                     customBorder:
                         const CircleBorder(),
                     onTap: () {
-                      final user =
-                          FirebaseAuth.instance.currentUser;
+                      final currentUser =
+                          FirebaseAuth
+                              .instance
+                              .currentUser;
 
-                      if (user != null) {
-                        _showEditProfile(user);
+                      if (currentUser != null) {
+                        _showEditProfile(
+                          currentUser,
+                        );
                       }
                     },
                     child: const Padding(
@@ -477,7 +472,7 @@ class _AccountScreenState extends State<AccountScreen> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (
-            context,
+            modalContext,
             setModalState,
           ) {
             return Padding(
@@ -485,7 +480,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 20,
                 20,
                 20,
-                MediaQuery.of(context)
+                MediaQuery.of(modalContext)
                         .viewInsets
                         .bottom +
                     25,
@@ -647,7 +642,7 @@ class _AccountScreenState extends State<AccountScreen> {
                     const SizedBox(height: 25),
 
                     // ========================================
-                    // SAVE
+                    // SAVE BUTTON
                     // ========================================
 
                     SizedBox(
@@ -667,14 +662,11 @@ class _AccountScreenState extends State<AccountScreen> {
                                         .text
                                         .trim();
 
-                                // ----------------------------
                                 // VALIDATION
-                                // ----------------------------
-
                                 if (name.isEmpty) {
                                   ScaffoldMessenger
                                       .of(
-                                    context,
+                                    modalContext,
                                   ).showSnackBar(
                                     const SnackBar(
                                       content: Text(
@@ -691,7 +683,7 @@ class _AccountScreenState extends State<AccountScreen> {
                                     )) {
                                   ScaffoldMessenger
                                       .of(
-                                    context,
+                                    modalContext,
                                   ).showSnackBar(
                                     const SnackBar(
                                       content: Text(
@@ -707,18 +699,18 @@ class _AccountScreenState extends State<AccountScreen> {
                                 });
 
                                 try {
-                                  // --------------------------
-                                  // FIREBASE AUTH
-                                  // --------------------------
+                                  // ==================================
+                                  // UPDATE FIREBASE AUTH
+                                  // ==================================
 
                                   await user
                                       .updateDisplayName(
                                     name,
                                   );
 
-                                  // --------------------------
-                                  // FIRESTORE
-                                  // --------------------------
+                                  // ==================================
+                                  // UPDATE FIRESTORE
+                                  // ==================================
 
                                   await firestoreService
                                       .setUser(
@@ -733,14 +725,13 @@ class _AccountScreenState extends State<AccountScreen> {
                                     },
                                   );
 
-                                  // --------------------------
+                                  // ==================================
                                   // RELOAD USER
-                                  // --------------------------
+                                  // ==================================
 
                                   await user.reload();
 
-                                  if (!context.mounted ||
-                                      !sheetContext.mounted) {
+                                  if (!mounted) {
                                     return;
                                   }
 
@@ -748,9 +739,24 @@ class _AccountScreenState extends State<AccountScreen> {
                                     _phone = phone;
                                   });
 
-                                  Navigator.pop(
-                                    sheetContext,
-                                  );
+                                  // ==================================
+                                  // CLOSE MODAL
+                                  // ==================================
+
+                                  if (sheetContext
+                                      .mounted) {
+                                    Navigator.pop(
+                                      sheetContext,
+                                    );
+                                  }
+
+                                  // ==================================
+                                  // SUCCESS MESSAGE
+                                  // ==================================
+
+                                  if (!mounted) {
+                                    return;
+                                  }
 
                                   ScaffoldMessenger
                                       .of(
@@ -762,9 +768,8 @@ class _AccountScreenState extends State<AccountScreen> {
                                       ),
                                     ),
                                   );
-
                                 } catch (e) {
-                                  if (!context.mounted) {
+                                  if (!mounted) {
                                     return;
                                   }
 
@@ -772,9 +777,14 @@ class _AccountScreenState extends State<AccountScreen> {
                                     saving = false;
                                   });
 
+                                  if (!modalContext
+                                      .mounted) {
+                                    return;
+                                  }
+
                                   ScaffoldMessenger
                                       .of(
-                                    context,
+                                    modalContext,
                                   ).showSnackBar(
                                     SnackBar(
                                       content: Text(
@@ -836,7 +846,10 @@ class _AccountScreenState extends State<AccountScreen> {
 
   bool _isValidPhone(String phone) {
     final cleanPhone =
-        phone.replaceAll(RegExp(r'[\s\-]'), '');
+        phone.replaceAll(
+      RegExp(r'[\s\-]'),
+      '',
+    );
 
     return RegExp(
       r'^(0|\+84)[0-9]{9,10}$',
@@ -919,8 +932,8 @@ class _AccountScreenState extends State<AccountScreen> {
                 Container(
                   width: 65,
                   height: 65,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF1F5F9),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -954,18 +967,21 @@ class _AccountScreenState extends State<AccountScreen> {
 
                 const SizedBox(height: 20),
 
-                _SecurityRow(
-                  icon: Icons.verified_user_outlined,
+                const _SecurityRow(
+                  icon:
+                      Icons.verified_user_outlined,
                   title: 'Xác thực tài khoản',
-                  subtitle: 'Firebase Authentication',
+                  subtitle:
+                      'Firebase Authentication',
                 ),
 
                 const SizedBox(height: 10),
 
-                _SecurityRow(
+                const _SecurityRow(
                   icon: Icons.lock_outline,
                   title: 'Mật khẩu',
-                  subtitle: 'Được Firebase quản lý',
+                  subtitle:
+                      'Được Firebase quản lý',
                 ),
 
                 const SizedBox(height: 22),
@@ -1081,7 +1097,8 @@ class _AccountScreenState extends State<AccountScreen> {
         height: 48,
         decoration: BoxDecoration(
           color: _navy,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius:
+              BorderRadius.circular(12),
         ),
         child: const Icon(
           Icons.hotel_rounded,
@@ -1100,7 +1117,9 @@ class _AccountScreenState extends State<AccountScreen> {
   // COMING SOON
   // ============================================================
 
-  void _showComingSoon(String feature) {
+  void _showComingSoon(
+    String feature,
+  ) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -1115,7 +1134,8 @@ class _AccountScreenState extends State<AccountScreen> {
   // ============================================================
 
   Future<void> _showLogoutDialog() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -1129,7 +1149,8 @@ class _AccountScreenState extends State<AccountScreen> {
             'Bạn có chắc muốn đăng xuất khỏi LuxeStay?',
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius:
+                BorderRadius.circular(18),
           ),
           actions: [
             TextButton(
@@ -1139,7 +1160,9 @@ class _AccountScreenState extends State<AccountScreen> {
                   false,
                 );
               },
-              child: const Text('Hủy'),
+              child: const Text(
+                'Hủy',
+              ),
             ),
             FilledButton(
               onPressed: () {
@@ -1148,7 +1171,8 @@ class _AccountScreenState extends State<AccountScreen> {
                   true,
                 );
               },
-              style: FilledButton.styleFrom(
+              style:
+                  FilledButton.styleFrom(
                 backgroundColor: _navy,
               ),
               child: const Text(
@@ -1195,14 +1219,14 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(
+    return Padding(
+      padding: const EdgeInsets.only(
         left: 4,
         bottom: 9,
       ),
       child: Text(
-        'Tài khoản',
-        style: TextStyle(
+        title,
+        style: const TextStyle(
           color: Color(0xFF0F172A),
           fontSize: 15,
           fontWeight: FontWeight.bold,
@@ -1228,7 +1252,8 @@ class _AccountCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius:
+            BorderRadius.circular(20),
         border: Border.all(
           color: Colors.grey.shade200,
         ),
@@ -1265,7 +1290,8 @@ class _AccountItem extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius:
+            BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -1277,13 +1303,15 @@ class _AccountItem extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
+                  color:
+                      const Color(0xFFF1F5F9),
                   borderRadius:
                       BorderRadius.circular(12),
                 ),
                 child: Icon(
                   icon,
-                  color: const Color(0xFF0F172A),
+                  color:
+                      const Color(0xFF0F172A),
                   size: 21,
                 ),
               ),
@@ -1298,8 +1326,10 @@ class _AccountItem extends StatelessWidget {
                     Text(
                       title,
                       style: const TextStyle(
-                        color: Color(0xFF0F172A),
-                        fontWeight: FontWeight.w600,
+                        color:
+                            Color(0xFF0F172A),
+                        fontWeight:
+                            FontWeight.w600,
                         fontSize: 14,
                       ),
                     ),
@@ -1310,7 +1340,8 @@ class _AccountItem extends StatelessWidget {
                       overflow:
                           TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.grey.shade500,
+                        color:
+                            Colors.grey.shade500,
                         fontSize: 11,
                       ),
                     ),
@@ -1399,7 +1430,8 @@ class _SecurityRow extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius:
+            BorderRadius.circular(14),
       ),
       child: Row(
         children: [
@@ -1416,14 +1448,16 @@ class _SecurityRow extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w600,
+                    fontWeight:
+                        FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: Colors.grey.shade600,
+                    color:
+                        Colors.grey.shade600,
                     fontSize: 11,
                   ),
                 ),
@@ -1480,15 +1514,18 @@ class _HelpRow extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F172A),
+                  fontWeight:
+                      FontWeight.w700,
+                  color:
+                      Color(0xFF0F172A),
                 ),
               ),
               const SizedBox(height: 3),
               Text(
                 subtitle,
                 style: TextStyle(
-                  color: Colors.grey.shade600,
+                  color:
+                      Colors.grey.shade600,
                   fontSize: 12,
                   height: 1.4,
                 ),
@@ -1505,19 +1542,22 @@ class _HelpRow extends StatelessWidget {
 // COMING SOON
 // ============================================================
 
-class _ComingSoonBadge extends StatelessWidget {
+class _ComingSoonBadge
+    extends StatelessWidget {
   const _ComingSoonBadge();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 7,
         vertical: 4,
       ),
       decoration: BoxDecoration(
         color: const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(7),
+        borderRadius:
+            BorderRadius.circular(7),
       ),
       child: const Text(
         'Sắp có',
@@ -1535,7 +1575,8 @@ class _ComingSoonBadge extends StatelessWidget {
 // LOGOUT BUTTON
 // ============================================================
 
-class _LogoutButton extends StatelessWidget {
+class _LogoutButton
+    extends StatelessWidget {
   const _LogoutButton({
     required this.onTap,
   });
@@ -1559,7 +1600,8 @@ class _LogoutButton extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        style: OutlinedButton.styleFrom(
+        style:
+            OutlinedButton.styleFrom(
           foregroundColor:
               const Color(0xFFB91C1C),
           side: const BorderSide(
@@ -1567,8 +1609,10 @@ class _LogoutButton extends StatelessWidget {
           ),
           backgroundColor:
               const Color(0xFFFFF7F7),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(14),
           ),
         ),
       ),
@@ -1580,27 +1624,33 @@ class _LogoutButton extends StatelessWidget {
 // LOGIN REQUIRED
 // ============================================================
 
-class _LoginRequiredState extends StatelessWidget {
+class _LoginRequiredState
+    extends StatelessWidget {
   const _LoginRequiredState();
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(30),
+        padding:
+            const EdgeInsets.all(30),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize:
+              MainAxisSize.min,
           children: [
             Container(
               width: 80,
               height: 80,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+              decoration:
+                  BoxDecoration(
+                color:
+                    const Color(0xFFF1F5F9),
                 borderRadius:
                     BorderRadius.circular(25),
               ),
               child: const Icon(
-                Icons.person_outline_rounded,
+                Icons
+                    .person_outline_rounded,
                 size: 42,
                 color: Color(0xFF0F172A),
               ),
@@ -1610,15 +1660,18 @@ class _LoginRequiredState extends StatelessWidget {
               'Vui lòng đăng nhập',
               style: TextStyle(
                 fontSize: 20,
-                fontWeight: FontWeight.bold,
+                fontWeight:
+                    FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Đăng nhập để xem và quản lý tài khoản của bạn.',
-              textAlign: TextAlign.center,
+              textAlign:
+                  TextAlign.center,
               style: TextStyle(
-                color: Colors.grey.shade600,
+                color:
+                    Colors.grey.shade600,
                 fontSize: 13,
               ),
             ),

@@ -13,6 +13,10 @@ class AuthGate extends StatelessWidget {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         if (authProvider.isLoggedIn) {
+          if (authProvider.isAdmin) {
+            return const AdminDashboardScreen();
+          }
+
           return const MainNavigationScreen();
         }
 

@@ -46,22 +46,19 @@ class Booking {
 
     return Booking(
       id: document.id,
-      userId: data['userId'] as String? ?? '',
-      propertyId: data['propertyId'] as String? ?? '',
-      propertyName: data['propertyName'] as String? ?? '',
-      roomId: data['roomId'] as String? ?? '',
-      roomName: data['roomName'] as String? ?? '',
+      userId: data['userId']?.toString() ?? '',
+      propertyId: data['propertyId']?.toString() ?? '',
+      propertyName: data['propertyName']?.toString() ?? '',
+      roomId: data['roomId']?.toString() ?? '',
+      roomName: data['roomName']?.toString() ?? '',
       checkIn: _readDate(data['checkIn']),
       checkOut: _readDate(data['checkOut']),
-      guests: (data['guests'] as num?)?.toInt() ?? 1,
-      rooms: (data['rooms'] as num?)?.toInt() ?? 1,
-      pricePerNight:
-          (data['pricePerNight'] as num?)?.toInt() ?? 0,
-      totalNights:
-          (data['totalNights'] as num?)?.toInt() ?? 1,
-      totalPrice:
-          (data['totalPrice'] as num?)?.toInt() ?? 0,
-      status: data['status'] as String? ?? 'pending',
+      guests: _parseInt(data['guests'], 1),
+      rooms: _parseInt(data['rooms'], 1),
+      pricePerNight: _parseInt(data['pricePerNight'], 0),
+      totalNights: _parseInt(data['totalNights'], 1),
+      totalPrice: _parseInt(data['totalPrice'], 0),
+      status: data['status']?.toString() ?? 'pending',
       createdAt: _readNullableDate(data['createdAt']),
     );
   }
@@ -87,27 +84,47 @@ class Booking {
     };
   }
 
+  static int _parseInt(dynamic value, [int defaultValue = 0]) {
+    if (value == null) return defaultValue;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      final cleaned = value.replaceAll(RegExp(r'[^0-9\-]'), '');
+      return int.tryParse(cleaned) ?? defaultValue;
+    }
+    return defaultValue;
+  }
+
   static DateTime _readDate(dynamic value) {
     if (value is Timestamp) {
       return value.toDate();
     }
-
     if (value is DateTime) {
       return value;
     }
-
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) return parsed;
+    }
     return DateTime.now();
   }
 
   static DateTime? _readNullableDate(dynamic value) {
+    if (value == null) return null;
     if (value is Timestamp) {
       return value.toDate();
     }
-
     if (value is DateTime) {
       return value;
     }
-
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    if (value is String) {
+      return DateTime.tryParse(value);
+    }
     return null;
   }
 }

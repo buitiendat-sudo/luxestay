@@ -4,7 +4,7 @@
   "description": "LuxeStay Firebase callable functions",
   "main": "index.js",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "scripts": {
     "lint": "node --check index.js"

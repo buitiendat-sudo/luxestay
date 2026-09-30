@@ -5,7 +5,7 @@ const { defineSecret } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
 
 const geminiApiKey = defineSecret('GEMINI_API_KEY');
-const modelName = 'gemini-2.5-flash';
+const modelName = 'gemini-3.1-flash-lite';
 
 const stringSchema = { type: 'STRING' };
 const integerSchema = { type: 'INTEGER' };
@@ -60,7 +60,7 @@ const responseSchema = objectSchema({
 exports.generateTravelPlan = onCall(
   {
     region: 'asia-southeast1',
-    enforceAppCheck: true,
+    enforceAppCheck: process.env.FUNCTIONS_EMULATOR !== 'true',
     secrets: [geminiApiKey],
     timeoutSeconds: 60,
     maxInstances: 10,

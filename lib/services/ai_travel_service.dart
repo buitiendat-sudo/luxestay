@@ -78,9 +78,14 @@ class AiTravelService {
       );
     }
 
-    final callable = FirebaseFunctions.instanceFor(
+    final functions = FirebaseFunctions.instanceFor(
       region: 'asia-southeast1',
-    ).httpsCallable('generateTravelPlan');
+    );
+    if (const bool.fromEnvironment('USE_FUNCTIONS_EMULATOR')) {
+      functions.useFunctionsEmulator('127.0.0.1', 5001);
+    }
+
+    final callable = functions.httpsCallable('generateTravelPlan');
     final response = await callable.call<Map<String, dynamic>>({
       'destination': destination,
       'days': days,

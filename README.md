@@ -10,20 +10,30 @@ flutter run -d chrome
 ```
 
 AI travel plan generation calls Gemini through a Firebase callable function.
-The API key stays in Cloud Functions Secret Manager and is never included in
-the Flutter app.
+For a local demo, create a fresh Gemini API key at
+https://aistudio.google.com/app/apikey, then put it in the ignored
+`functions/.secret.local` file:
 
-Create a Gemini API key at https://aistudio.google.com/app/apikey, then set it
-as a Firebase Functions secret and deploy the function:
-
-```powershell
-firebase functions:secrets:set GEMINI_API_KEY --project luxestay-1309f
-firebase deploy --only functions:generateTravelPlan --project luxestay-1309f
+```dotenv
+GEMINI_API_KEY=your-new-key-here
 }
 
-The callable function requires an authenticated user and valid Firebase App
-Check token. Cloud Functions deployment requires the Firebase project to use
-the Blaze plan.
+Start the backend emulator in one terminal:
+
+```powershell
+firebase emulators:start --only functions --project luxestay-1309f
+```
+
+Run the Flutter app in another terminal:
+
+```powershell
+flutter run -d chrome --dart-define=USE_FUNCTIONS_EMULATOR=true
+```
+
+The demo still uses the configured Firebase project for Authentication and
+Firestore, so sign in with an existing account. The API key stays in the local
+emulator process and is not compiled into the web app. Do not reuse the key
+previously pasted into chat; revoke it and create a new one.
 ```
 
 Validate changes with:

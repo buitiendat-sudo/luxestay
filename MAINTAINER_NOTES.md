@@ -18,7 +18,7 @@ Kết quả lần review gần nhất:
 - `flutter test`: tất cả test hiện tại pass.
 - Test hiện tại còn rất mỏng; test smoke chỉ kiểm tra test runner, chưa kiểm tra Firebase, auth, Firestore hay UI admin.
 
-Không chạy `futter analyze`; lệnh đúng là `flutter analyze`.
+
 
 ## 2. Chạy ứng dụng
 

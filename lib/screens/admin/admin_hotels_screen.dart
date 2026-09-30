@@ -518,12 +518,9 @@ class _GeocodePropertiesButtonState extends State<_GeocodePropertiesButton> {
     var updated = 0;
     final failures = <String>[];
 
-    try {
-      for (var index = 0; index < pending.length; index++) {
-        if (!mounted) return;
-        setState(() => _completed = index + 1);
+    var completed = 0;
 
-        final hotel = pending[index];
+    Future<void> processHotel(Map<String, dynamic> hotel) async {
         final name = hotel['name']?.toString().trim() ?? '';
         final id = hotel['id']?.toString() ?? '';
 
@@ -556,7 +553,21 @@ class _GeocodePropertiesButtonState extends State<_GeocodePropertiesButton> {
             '$name: Không lưu được tọa độ vào Firestore '
             '(${error.message ?? error.code}).',
           );
+        } catch (error) {
+          failures.add('$name: Lỗi không xác định ($error).');
+        } finally {
+          completed++;
+          if (mounted) {
+            setState(() => _completed = completed);
+          }
         }
+    }
+
+    try {
+      for (var offset = 0; offset < pending.length; offset += 4) {
+        if (!mounted) return;
+        final batch = pending.skip(offset).take(4);
+        await Future.wait(batch.map(processHotel));
       }
     } finally {
       if (mounted) {

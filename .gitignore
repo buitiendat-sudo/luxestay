@@ -32,6 +32,9 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+/dart_defines.json
+/functions/node_modules/
+/functions/.secret.local
 
 # Symbolication related
 app.*.symbols

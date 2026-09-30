@@ -63,18 +63,43 @@ void main() {
         throwsA(isA<GoogleGeocodingException>()),
       );
     });
+
+    test('reports a timeout when Google responds too slowly', () async {
+      final service = GoogleGeocodingService(
+        client: _FakeClient(
+          jsonEncode({'status': 'OK', 'results': []}),
+          delay: const Duration(milliseconds: 20),
+        ),
+        apiKey: 'test-key',
+        timeout: const Duration(milliseconds: 1),
+      );
+      addTearDown(service.close);
+
+      await expectLater(
+        service.geocodeHotel(name: 'Slow Resort', location: 'Phú Quốc'),
+        throwsA(
+          isA<GoogleGeocodingException>().having(
+            (error) => error.message,
+            'message',
+            contains('phản hồi quá chậm'),
+          ),
+        ),
+      );
+    });
   });
 }
 
 class _FakeClient extends http.BaseClient {
-  _FakeClient(this.responseBody);
+  _FakeClient(this.responseBody, {this.delay = Duration.zero});
 
   final String responseBody;
+  final Duration delay;
   Uri? requestedUri;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     requestedUri = request.url;
+    await Future<void>.delayed(delay);
     return http.StreamedResponse(
       Stream<List<int>>.value(utf8.encode(responseBody)),
       200,

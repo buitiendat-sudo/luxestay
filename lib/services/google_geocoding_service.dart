@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -29,12 +30,13 @@ class GoogleGeocodingService {
   GoogleGeocodingService({
     http.Client? client,
     String? apiKey,
+    this.timeout = const Duration(seconds: 15),
   })  : _client = client ?? http.Client(),
-        _apiKey =
-            apiKey ?? const String.fromEnvironment('GOOGLE_MAPS_API_KEY');
+        _apiKey = apiKey ?? const String.fromEnvironment('GOOGLE_MAPS_API_KEY');
 
   final http.Client _client;
   final String _apiKey;
+  final Duration timeout;
 
   bool get isConfigured => _apiKey.trim().isNotEmpty;
 
@@ -72,7 +74,14 @@ class GoogleGeocodingService {
         'key': _apiKey,
       },
     );
-    final response = await _client.get(uri);
+    final http.Response response;
+    try {
+      response = await _client.get(uri).timeout(timeout);
+    } on TimeoutException {
+      throw const GoogleGeocodingException(
+        'Google Geocoding API phản hồi quá chậm. Hãy thử lại.',
+      );
+    }
 
     if (response.statusCode != 200) {
       throw GoogleGeocodingException(

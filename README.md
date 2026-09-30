@@ -9,6 +9,23 @@ flutter pub get
 flutter run -d chrome
 ```
 
+AI travel plan generation calls Gemini through a Firebase callable function.
+The API key stays in Cloud Functions Secret Manager and is never included in
+the Flutter app.
+
+Create a Gemini API key at https://aistudio.google.com/app/apikey, then set it
+as a Firebase Functions secret and deploy the function:
+
+```powershell
+firebase functions:secrets:set GEMINI_API_KEY --project luxestay-1309f
+firebase deploy --only functions:generateTravelPlan --project luxestay-1309f
+}
+
+The callable function requires an authenticated user and valid Firebase App
+Check token. Cloud Functions deployment requires the Firebase project to use
+the Blaze plan.
+```
+
 Validate changes with:
 
 ```powershell

@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../models/property.dart';
 import '../../services/firestore_service.dart';
 import 'hotel_detail_screen.dart';
+import 'ai_travel_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -618,6 +619,41 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
         child: Column(
           children: [
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AiTravelScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(
+                  Icons.auto_awesome,
+                  size: 18,
+                ),
+                label: const Text(
+                  '✨ Lập kế hoạch chuyến đi bằng AI',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF2563EB),
+                  side: const BorderSide(
+                    color: Color(0xFF2563EB),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             _searchLine(
               Icons.location_on_rounded,
               'ĐIỂM ĐẾN',

@@ -73,6 +73,16 @@ exports.generateTravelPlan = onCall(
       );
     }
 
+    let apiKey;
+    try {
+      apiKey = geminiApiKey.value();
+    } catch {
+      throw new HttpsError(
+        'failed-precondition',
+        'GEMINI_API_KEY chưa được cấu hình. Thêm secret vào Firebase hoặc file functions/.secret.local khi chạy emulator.',
+      );
+    }
+
     const {
       destination,
       days,
@@ -124,7 +134,7 @@ ${JSON.stringify(hotelInventory)}
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-goog-api-key': geminiApiKey.value(),
+            'x-goog-api-key': apiKey,
           },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],

@@ -1,7 +1,8 @@
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/ai_travel_plan.dart';
 import '../../models/property.dart';
@@ -17,1007 +18,1620 @@ class AiTravelScreen extends StatefulWidget {
 }
 
 class _AiTravelScreenState extends State<AiTravelScreen> {
-  static const Color _navy = Color(0xFF0F172A);
-  static const Color _blue = Color(0xFF2563EB);
-  static const Color _background = Color(0xFFF8F9FF);
+  // ============================================================
+  // CONTROLLERS
+  // ============================================================
 
-  final TextEditingController _budgetController =
-      TextEditingController(text: '5000000');
+  final TextEditingController _destinationController = TextEditingController();
 
-  final List<String> _destinations = const [
-    'Đà Nẵng',
-    'Phú Quốc',
-    'Nha Trang',
-    'Đà Lạt',
-    'Hạ Long',
-    'Hà Nội',
-    'TP. Hồ Chí Minh',
-  ];
+  final TextEditingController _budgetController = TextEditingController();
 
-  String _destination = 'Đà Nẵng';
+  final TextEditingController _chatController = TextEditingController();
+
+  // ============================================================
+  // STATE
+  // ============================================================
+
   int _days = 3;
   int _guests = 2;
 
-  bool _loading = false;
+  bool _isGenerating = false;
+  bool _isChatLoading = false;
+
   AiTravelPlan? _plan;
+
+  String? _errorMessage;
+
+  final NumberFormat _currencyFormat = NumberFormat('#,###', 'vi_VN');
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
 
   @override
   void dispose() {
+    _destinationController.dispose();
     _budgetController.dispose();
+    _chatController.dispose();
     super.dispose();
   }
 
-  int get _budget {
-    final value =
-        int.tryParse(_budgetController.text.replaceAll('.', ''));
-    return value ?? 0;
+  // ============================================================
+  // CURRENCY
+  // ============================================================
+
+  String _formatMoney(int value) {
+    return '${_currencyFormat.format(value)} đ';
   }
+
+  Future<void> _openHotelBooking(
+    AiHotelRecommendation recommendation,
+  ) async {
+    try {
+      final properties = await context
+          .read<FirestoreService>()
+          .getProperties()
+          .first;
+
+      Property? property;
+      for (final candidate in properties) {
+        if (candidate.id == recommendation.propertyId) {
+          property = candidate;
+          break;
+        }
+      }
+
+      if (!mounted) return;
+
+      if (property == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Khách sạn được đề xuất hiện không còn khả dụng.'),
+          ),
+        );
+        return;
+      }
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PropertyDetailScreen(property: property!),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Không thể mở trang đặt phòng: $error'),
+        ),
+      );
+    }
+  }
+
+  String _buildShareText(AiTravelPlan plan) {
+    final text = StringBuffer(
+      'LỊCH TRÌNH DU LỊCH ${plan.destination.toUpperCase()}\n',
+    );
+
+    if (plan.summary.isNotEmpty) {
+      text.writeln(plan.summary);
+    }
+
+    if (plan.hotels.isNotEmpty) {
+      text.writeln('\nKHÁCH SẠN LUXESTAY GỢI Ý');
+      for (final hotel in plan.hotels) {
+        text.writeln(
+          '• Phòng ${hotel.roomId}: ${hotel.reason} '
+          '(${_formatMoney(hotel.estimatedTotal)})',
+        );
+      }
+    }
+
+    text.writeln('\nLỊCH TRÌNH');
+    for (final day in plan.itinerary) {
+      text.writeln('Ngày ${day.day}: ${day.title}');
+
+      if (day.schedule.isNotEmpty) {
+        for (final item in day.schedule) {
+          final place = item.place.isEmpty ? '' : ' · ${item.place}';
+          text.writeln('• ${item.time} — ${item.activity}$place');
+        }
+      } else {
+        for (final activity in day.activities) {
+          text.writeln('• $activity');
+        }
+      }
+    }
+
+    text.writeln('\nNgân sách dự kiến: ${_formatMoney(plan.budget.total)}');
+    text.writeln('\nCùng mình xem và lên kế hoạch cho chuyến đi này nhé!');
+
+    return text.toString();
+  }
+
+  Future<void> _copyPlanToClipboard(AiTravelPlan plan) async {
+    await Clipboard.setData(ClipboardData(text: _buildShareText(plan)));
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Đã sao chép lịch trình. Hãy dán vào Zalo hoặc Messenger.'),
+      ),
+    );
+  }
+
+  Future<void> _launchShareUri(Uri uri) async {
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không tìm thấy ứng dụng phù hợp để chia sẻ.')),
+      );
+    }
+  }
+
+  void _showSharePlanSheet(AiTravelPlan plan) {
+    final shareText = _buildShareText(plan);
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Chia sẻ lịch trình',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Mời bạn bè cùng xem và thảo luận về chuyến đi.',
+                  style: TextStyle(color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.copy_all_outlined),
+                  title: const Text('Sao chép lịch trình'),
+                  subtitle: const Text('Dán vào Zalo, Messenger hoặc mạng xã hội'),
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    await _copyPlanToClipboard(plan);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.email_outlined),
+                  title: const Text('Gửi qua email'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _launchShareUri(
+                      Uri(
+                        scheme: 'mailto',
+                        queryParameters: {
+                          'subject': 'Lịch trình du lịch ${plan.destination}',
+                          'body': shareText,
+                        },
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.sms_outlined),
+                  title: const Text('Gửi qua tin nhắn'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _launchShareUri(
+                      Uri(
+                        scheme: 'sms',
+                        queryParameters: {'body': shareText},
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // GENERATE PLAN
+  // ============================================================
 
   Future<void> _generatePlan() async {
     FocusScope.of(context).unfocus();
 
-    if (_budget < 100000) {
-      _showError('Ngân sách phải lớn hơn 100.000đ.');
+    final destination = _destinationController.text.trim();
+
+    final budgetText = _budgetController.text
+        .replaceAll('.', '')
+        .replaceAll(',', '')
+        .trim();
+
+    final budget = int.tryParse(budgetText) ?? 0;
+
+    if (destination.isEmpty) {
+      setState(() {
+        _errorMessage = 'Vui lòng nhập điểm đến.';
+      });
+      return;
+    }
+
+    if (budget <= 0) {
+      setState(() {
+        _errorMessage = 'Vui lòng nhập ngân sách hợp lệ.';
+      });
       return;
     }
 
     setState(() {
-      _loading = true;
-      _plan = null;
+      _isGenerating = true;
+      _errorMessage = null;
     });
 
     try {
-      final firestoreService = context.read<FirestoreService>();
-      final service = AiTravelService(firestoreService);
+      final firestore = context.read<FirestoreService>();
+
+      final service = AiTravelService(firestore);
 
       final plan = await service.generateTravelPlan(
-        destination: _destination,
+        destination: destination,
         days: _days,
         guests: _guests,
-        budget: _budget,
+        budget: budget,
       );
 
       if (!mounted) return;
 
       setState(() {
         _plan = plan;
-        _loading = false;
+        _isGenerating = false;
       });
-    } catch (e) {
+    } catch (error) {
       if (!mounted) return;
 
       setState(() {
-        _loading = false;
+        _isGenerating = false;
+        _errorMessage = error.toString().replaceFirst('Exception: ', '');
       });
-
-      _showError('Không thể tạo kế hoạch: $e');
     }
   }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
+  // ============================================================
+  // CHAT - REVISE PLAN
+  // ============================================================
 
-  String _money(int value) {
-    return NumberFormat('#,###', 'vi_VN').format(value);
-  }
+  Future<void> _sendChatMessage() async {
+    final message = _chatController.text.trim();
 
-  Property? _findProperty(
-    AiTravelPlan plan,
-    String propertyId,
-    List<Property> properties,
-  ) {
-    for (final property in properties) {
-      if (property.id == propertyId) {
-        return property;
-      }
-    }
-
-    return null;
-  }
-
-  Future<void> _openHotel(
-    AiHotelRecommendation recommendation,
-  ) async {
-    final properties =
-        await context.read<FirestoreService>().getProperties().first;
-
-    if (!mounted) return;
-
-    final property = _findProperty(
-      _plan!,
-      recommendation.propertyId,
-      properties,
-    );
-
-    if (property == null) {
-      _showError('Không tìm thấy khách sạn trong LuxeStay.');
+    if (message.isEmpty) {
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PropertyDetailScreen(
-          property: property,
+    if (_plan == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hãy tạo kế hoạch trước khi chỉnh sửa.')),
+      );
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _isChatLoading = true;
+    });
+
+    try {
+      final firestore = context.read<FirestoreService>();
+
+      final service = AiTravelService(firestore);
+
+      final updatedPlan = await service.reviseTravelPlan(
+        currentPlan: _plan!,
+        userRequest: message,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _plan = updatedPlan;
+        _chatController.clear();
+        _isChatLoading = false;
+      });
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Đã cập nhật kế hoạch.')));
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _isChatLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
         ),
-      ),
-    );
+      );
+    }
   }
+
+  // ============================================================
+  // CHAT SUGGESTION
+  // ============================================================
+
+  void _useChatSuggestion(String text) {
+    setState(() {
+      _chatController.text = text;
+      _chatController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _chatController.text.length),
+      );
+    });
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: const Color(0xFFF7F8FC),
+
       appBar: AppBar(
-        title: const Text(
-          'AI Travel Planner',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: _navy,
+        title: const Text('AI Travel Planner'),
+        backgroundColor: const Color(0xFFF7F8FC),
         elevation: 0,
+        actions: [
+          if (_plan != null)
+            IconButton(
+              tooltip: 'Chia sẻ lịch trình',
+              onPressed: () => _showSharePlanSheet(_plan!),
+              icon: const Icon(Icons.share_outlined),
+            ),
+        ],
       ),
+
       body: SafeArea(
-        child: _loading
-            ? _buildLoading()
-            : _plan == null
-                ? _buildForm()
-                : _buildPlan(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+
+              const SizedBox(height: 20),
+
+              _buildInputCard(),
+
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 14),
+                _buildError(),
+              ],
+
+              if (_isGenerating) ...[
+                const SizedBox(height: 20),
+                _buildLoading(),
+              ],
+
+              if (_plan != null && !_isGenerating) ...[
+                const SizedBox(height: 24),
+                _buildPlan(_plan!),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildForm() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+  // ============================================================
+  // HEADER
+  // ============================================================
+
+  Widget _buildHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(24),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHero(),
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(Icons.auto_awesome, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'LUXESTAY AI',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           const Text(
-            'Bạn muốn đi đâu?',
+            'Lập kế hoạch\nchuyến đi của bạn',
             style: TextStyle(
-              fontSize: 18,
+              color: Colors.white,
+              fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: _navy,
+              height: 1.15,
             ),
           ),
 
           const SizedBox(height: 10),
 
-          _buildDestinationPicker(),
-
-          const SizedBox(height: 18),
-
-          const Text(
-            'Số ngày',
+          Text(
+            'Nhập điểm đến, số ngày, số khách '
+            'và ngân sách. AI sẽ tạo lịch trình '
+            'chi tiết kèm khách sạn LuxeStay.',
             style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
+              color: Colors.white.withValues(alpha: 0.72),
+              fontSize: 13,
+              height: 1.5,
             ),
           ),
+        ],
+      ),
+    );
+  }
 
-          const SizedBox(height: 8),
+  // ============================================================
+  // INPUT CARD
+  // ============================================================
 
-          _buildCounter(
-            value: _days,
-            suffix: 'ngày',
-            min: 1,
-            max: 30,
-            onChanged: (value) {
-              setState(() => _days = value);
-            },
-          ),
-
-          const SizedBox(height: 18),
-
+  Widget _buildInputCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           const Text(
-            'Số người',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
+            'Thông tin chuyến đi',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
 
-          _buildCounter(
-            value: _guests,
-            suffix: 'người',
-            min: 1,
-            max: 20,
-            onChanged: (value) {
-              setState(() => _guests = value);
-            },
+          // DESTINATION
+          _buildTextField(
+            controller: _destinationController,
+            label: 'Điểm đến',
+            hint: 'Ví dụ: Đà Nẵng',
+            icon: Icons.location_on_outlined,
           ),
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
 
-          const Text(
-            'Ngân sách',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          TextField(
-            controller: _budgetController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              suffixText: 'VNĐ',
-              prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
+          // DAYS + GUESTS
+          Row(
+            children: [
+              Expanded(
+                child: _buildNumberSelector(
+                  label: 'Số ngày',
+                  value: _days,
+                  min: 1,
+                  max: 14,
+                  icon: Icons.calendar_month_outlined,
+                  onChanged: (value) {
+                    setState(() {
+                      _days = value;
+                    });
+                  },
+                ),
               ),
-            ),
+
+              const SizedBox(width: 12),
+
+              Expanded(
+                child: _buildNumberSelector(
+                  label: 'Số khách',
+                  value: _guests,
+                  min: 1,
+                  max: 20,
+                  icon: Icons.people_outline,
+                  onChanged: (value) {
+                    setState(() {
+                      _guests = value;
+                    });
+                  },
+                ),
+              ),
+            ],
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 14),
+
+          // BUDGET
+          _buildTextField(
+            controller: _budgetController,
+            label: 'Ngân sách',
+            hint: 'Ví dụ: 10000000',
+            icon: Icons.account_balance_wallet_outlined,
+            keyboardType: TextInputType.number,
+          ),
+
+          const SizedBox(height: 18),
 
           SizedBox(
             width: double.infinity,
-            height: 54,
-            child: FilledButton.icon(
-              onPressed: _generatePlan,
-              icon: const Icon(Icons.auto_awesome),
-              label: const Text(
-                'Lập kế hoạch với AI',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                ),
+            height: 52,
+            child: ElevatedButton.icon(
+              onPressed: _isGenerating ? null : _generatePlan,
+              icon: _isGenerating
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.auto_awesome),
+              label: Text(
+                _isGenerating ? 'Đang tạo kế hoạch...' : 'Tạo kế hoạch với AI',
               ),
-              style: FilledButton.styleFrom(
-                backgroundColor: _navy,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F172A),
+                foregroundColor: Colors.white,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
             ),
           ),
-
-          const SizedBox(height: 20),
-
-          _buildInfoCard(),
         ],
       ),
     );
   }
 
-  Widget _buildHero() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF0F172A),
-            Color(0xFF1D4ED8),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.auto_awesome,
-            color: Colors.white,
-            size: 34,
-          ),
-          SizedBox(height: 14),
-          Text(
-            'AI TRAVEL PLANNER',
-            style: TextStyle(
-              color: Color(0xFFBFDBFE),
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1,
-            ),
-          ),
-          SizedBox(height: 5),
-          Text(
-            'Lên kế hoạch chuyến đi\ncùng LuxeStay',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              height: 1.1,
-            ),
-          ),
-          SizedBox(height: 10),
-          Text(
-            'AI sẽ gợi ý địa điểm, nhà hàng, chi phí, lịch trình và khách sạn phù hợp.',
-            style: TextStyle(
-              color: Color(0xFFE0F2FE),
-              fontSize: 13,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ============================================================
+  // TEXT FIELD
+  // ============================================================
 
-  Widget _buildDestinationPicker() {
-    return InkWell(
-      onTap: () async {
-        final selected = await showModalBottomSheet<String>(
-          context: context,
-          backgroundColor: Colors.white,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(24),
-            ),
-          ),
-          builder: (context) {
-            return SafeArea(
-              child: ListView(
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 10, 20, 14),
-                    child: Text(
-                      'Chọn điểm đến',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  ..._destinations.map(
-                    (destination) => ListTile(
-                      leading: Icon(
-                        destination == _destination
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_off,
-                        color: destination == _destination
-                            ? _blue
-                            : Colors.grey,
-                      ),
-                      title: Text(destination),
-                      onTap: () {
-                        Navigator.pop(context, destination);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-
-        if (selected != null) {
-          setState(() {
-            _destination = selected;
-          });
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 15,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: const Color(0xFFE2E8F0),
-          ),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.location_on_outlined,
-              color: _blue,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                _destination,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            const Icon(Icons.keyboard_arrow_down),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCounter({
-    required int value,
-    required String suffix,
-    required int min,
-    required int max,
-    required ValueChanged<int> onChanged,
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    TextInputType? keyboardType,
   }) {
-    return Container(
-      height: 58,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFE2E8F0),
-        ),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: value <= min
-                ? null
-                : () => onChanged(value - 1),
-            icon: const Icon(
-              Icons.remove_circle_outline,
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: Text(
-                '$value $suffix',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: value >= max
-                ? null
-                : () => onChanged(value + 1),
-            icon: const Icon(
-              Icons.add_circle_outline,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.hotel_outlined,
-            color: _blue,
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'AI sẽ ưu tiên các khách sạn và phòng đang có trong dữ liệu LuxeStay, phù hợp với điểm đến và ngân sách của bạn.',
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.45,
-                color: Color(0xFF1E3A8A),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoading() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(30),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 24),
-            const Text(
-              'AI đang lập kế hoạch...',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: _navy,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Đang tìm khách sạn, địa điểm và xây dựng lịch trình cho $_destination.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlan() {
-    final plan = _plan!;
-
-    return StreamBuilder<List<Property>>(
-      stream: context.read<FirestoreService>().getProperties(),
-      builder: (context, snapshot) {
-        final properties =
-            snapshot.data ?? const <Property>[];
-
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 30),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildPlanHeader(plan),
-
-              const SizedBox(height: 18),
-
-              _sectionTitle(
-                Icons.hotel_outlined,
-                'Khách sạn AI đề xuất',
-              ),
-
-              const SizedBox(height: 10),
-
-              ...plan.hotels.map(
-                (hotel) => _buildHotelCard(
-                  hotel,
-                  properties,
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              _sectionTitle(
-                Icons.route_outlined,
-                'Lịch trình ${plan.itinerary.length} ngày',
-              ),
-
-              const SizedBox(height: 10),
-
-              ...plan.itinerary.map(
-                _buildDayCard,
-              ),
-
-              const SizedBox(height: 20),
-
-              _sectionTitle(
-                Icons.place_outlined,
-                'Địa điểm nên ghé',
-              ),
-
-              const SizedBox(height: 10),
-
-              ...plan.places.map(
-                _buildPlaceCard,
-              ),
-
-              const SizedBox(height: 20),
-
-              _sectionTitle(
-                Icons.restaurant_outlined,
-                'Nhà hàng gợi ý',
-              ),
-
-              const SizedBox(height: 10),
-
-              ...plan.restaurants.map(
-                _buildRestaurantCard,
-              ),
-
-              const SizedBox(height: 20),
-
-              _sectionTitle(
-                Icons.account_balance_wallet_outlined,
-                'Dự toán chi phí',
-              ),
-
-              const SizedBox(height: 10),
-
-              _buildBudgetCard(plan.budget),
-
-              const SizedBox(height: 24),
-
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _plan = null;
-                    });
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text(
-                    'Lập kế hoạch khác',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildPlanHeader(AiTravelPlan plan) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _navy,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(
-                Icons.auto_awesome,
-                color: Color(0xFFFBBF24),
-              ),
-              SizedBox(width: 8),
-              Text(
-                'KẾ HOẠCH CỦA BẠN',
-                style: TextStyle(
-                  color: Color(0xFFBFDBFE),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            plan.destination,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 25,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            plan.summary,
-            style: const TextStyle(
-              color: Color(0xFFE2E8F0),
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionTitle(IconData icon, String title) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 21,
-          color: _navy,
-        ),
-        const SizedBox(width: 8),
         Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            color: _navy,
+          label,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        ),
+
+        const SizedBox(height: 7),
+
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(icon),
+            filled: true,
+            fillColor: const Color(0xFFF7F8FC),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(13),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(13),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(13),
+              borderSide: const BorderSide(color: Color(0xFF0F172A)),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildHotelCard(
-    AiHotelRecommendation recommendation,
-    List<Property> properties,
-  ) {
-    final property = _findProperty(
-      _plan!,
-      recommendation.propertyId,
-      properties,
-    );
+  // ============================================================
+  // NUMBER SELECTOR
+  // ============================================================
 
-    if (property == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(
-          color: Colors.grey.shade200,
-        ),
-      ),
-      child: InkWell(
-        onTap: () => _openHotel(recommendation),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (property.image.isNotEmpty)
-              SizedBox(
-                height: 150,
-                width: double.infinity,
-                child: Image.network(
-                  property.image,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
-                    color: Colors.grey.shade200,
-                    child: const Icon(Icons.hotel),
-                  ),
-                ),
-              ),
-
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          property.name,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                      const Icon(
-                        Icons.star,
-                        size: 16,
-                        color: Color(0xFFF59E0B),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        property.rating.toStringAsFixed(1),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 5),
-
-                  Text(
-                    property.location,
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 12,
-                    ),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  Text(
-                    recommendation.reason,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Ước tính: ${_money(recommendation.estimatedTotal)}đ',
-                          style: const TextStyle(
-                            color: _navy,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                      FilledButton(
-                        onPressed: () => _openHotel(
-                          recommendation,
-                        ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _navy,
-                        ),
-                        child: const Text('Xem phòng'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDayCard(AiDayPlan day) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 0,
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(15),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Ngày ${day.day} · ${day.title}',
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ...day.activities.map(
-              (activity) => Padding(
-                padding: const EdgeInsets.only(bottom: 7),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '• ',
-                      style: TextStyle(
-                        color: _blue,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        activity,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Chi phí dự kiến: ${_money(day.estimatedCost)}đ',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlaceCard(AiPlace place) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 0,
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Color(0xFFEFF6FF),
-          child: Icon(
-            Icons.place,
-            color: _blue,
-          ),
-        ),
-        title: Text(
-          place.name,
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        subtitle: Text(
-          '${place.description}\n~${_money(place.estimatedCost)}đ',
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRestaurantCard(AiRestaurant restaurant) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 0,
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Color(0xFFFFF7ED),
-          child: Icon(
-            Icons.restaurant,
-            color: Color(0xFFD97706),
-          ),
-        ),
-        title: Text(
-          restaurant.name,
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        subtitle: Text(
-          '${restaurant.description}\n~${_money(restaurant.estimatedCost)}đ/người',
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBudgetCard(AiBudget budget) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _budgetRow('Khách sạn', budget.hotel),
-            _budgetRow('Ăn uống', budget.food),
-            _budgetRow('Di chuyển', budget.transport),
-            _budgetRow('Tham quan', budget.activities),
-            _budgetRow('Khác', budget.other),
-            const Divider(),
-            _budgetRow(
-              'Tổng cộng',
-              budget.total,
-              bold: true,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _budgetRow(
-    String label,
-    int value, {
-    bool bold = false,
+  Widget _buildNumberSelector({
+    required String label,
+    required int value,
+    required int min,
+    required int max,
+    required IconData icon,
+    required ValueChanged<int> onChanged,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FC),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Icon(icon, size: 17),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 7),
+
+          Row(
+            children: [
+              _smallButton(
+                icon: Icons.remove,
+                onTap: value > min
+                    ? () {
+                        onChanged(value - 1);
+                      }
+                    : null,
+              ),
+
+              Expanded(
+                child: Center(
+                  child: Text(
+                    '$value',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+
+              _smallButton(
+                icon: Icons.add,
+                onTap: value < max
+                    ? () {
+                        onChanged(value + 1);
+                      }
+                    : null,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // SMALL BUTTON
+  // ============================================================
+
+  Widget _smallButton({required IconData icon, required VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Icon(icon, size: 17),
+      ),
+    );
+  }
+
+  // ============================================================
+  // ERROR
+  // ============================================================
+
+  Widget _buildError() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF1F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline, color: Color(0xFFDC2626)),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
-              label,
-              style: TextStyle(
-                fontWeight:
-                    bold ? FontWeight.w900 : FontWeight.w500,
+              _errorMessage!,
+              style: const TextStyle(
+                color: Color(0xFF991B1B),
+                fontSize: 13,
+                height: 1.4,
               ),
-            ),
-          ),
-          Text(
-            '${_money(value)}đ',
-            style: TextStyle(
-              fontWeight:
-                  bold ? FontWeight.w900 : FontWeight.w700,
             ),
           ),
         ],
       ),
     );
   }
-}
 
+  // ============================================================
+  // LOADING
+  // ============================================================
+
+  Widget _buildLoading() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Column(
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 14),
+          Text(
+            'AI đang xây dựng kế hoạch...',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          SizedBox(height: 5),
+          Text(
+            'Đang tìm khách sạn và phòng phù hợp trong LuxeStay.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // FULL PLAN
+  // ============================================================
+
+  Widget _buildPlan(AiTravelPlan plan) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPlanHeader(plan),
+
+        const SizedBox(height: 22),
+
+        _sectionTitle(Icons.hotel_outlined, 'Khách sạn AI đề xuất'),
+
+        const SizedBox(height: 10),
+
+        _buildHotels(plan),
+
+        const SizedBox(height: 22),
+
+        _sectionTitle(Icons.calendar_month_outlined, 'Lịch trình'),
+
+        const SizedBox(height: 10),
+
+        ...plan.itinerary.map(_buildDayPlan),
+
+        const SizedBox(height: 8),
+
+        _sectionTitle(
+          Icons.account_balance_wallet_outlined,
+          'Ngân sách dự kiến',
+        ),
+
+        const SizedBox(height: 10),
+
+        _buildBudget(plan),
+
+        const SizedBox(height: 22),
+
+        _sectionTitle(Icons.restaurant_outlined, 'Nhà hàng gợi ý'),
+
+        const SizedBox(height: 10),
+
+        _buildRestaurants(plan),
+
+        const SizedBox(height: 22),
+
+        _sectionTitle(Icons.place_outlined, 'Địa điểm nên ghé'),
+
+        const SizedBox(height: 10),
+
+        _buildPlaces(plan),
+
+        const SizedBox(height: 24),
+
+        _buildAiChatBox(),
+      ],
+    );
+  }
+
+  // ============================================================
+  // PLAN HEADER
+  // ============================================================
+
+  Widget _buildPlanHeader(AiTravelPlan plan) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome,
+                color: Color(0xFFFBBF24),
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'KẾ HOẠCH CỦA BẠN',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.75),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          Text(
+            plan.destination,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 27,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          Text(
+            plan.summary,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 13,
+              height: 1.55,
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          OutlinedButton.icon(
+            onPressed: () => _showSharePlanSheet(plan),
+            icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+            label: const Text('Mời bạn bè cùng xem'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // SECTION TITLE
+  // ============================================================
+
+  Widget _sectionTitle(IconData icon, String title) {
+    return Row(
+      children: [
+        Icon(icon, size: 21, color: const Color(0xFF0F172A)),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // HOTELS
+  // ============================================================
+
+  Widget _buildHotels(AiTravelPlan plan) {
+    if (plan.hotels.isEmpty) {
+      return _emptyCard('AI chưa tìm thấy phòng phù hợp.');
+    }
+
+    return Column(
+      children: plan.hotels.map((hotel) {
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: const Icon(Icons.hotel, color: Color(0xFFD97706)),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'LuxeStay Hotel',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Phòng: ${hotel.roomId}',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  Text(
+                    _formatMoney(hotel.estimatedTotal),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              Text(
+                hotel.reason,
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.45,
+                  color: Color(0xFF475569),
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _openHotelBooking(hotel),
+                  icon: const Icon(Icons.calendar_month_outlined, size: 18),
+                  label: const Text('Xem phòng và đặt ngay'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF0F172A),
+                    side: const BorderSide(color: Color(0xFF0F172A)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ============================================================
+  // DAY PLAN
+  // ============================================================
+
+  Widget _buildDayPlan(AiDayPlan day) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            decoration: const BoxDecoration(
+              color: Color(0xFF0F172A),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Text(
+                    '${day.day}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 10),
+
+                Expanded(
+                  child: Text(
+                    'NGÀY ${day.day} — ${day.title}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          _buildScheduleTable(day),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // SCHEDULE TABLE
+  // ============================================================
+
+  Widget _buildScheduleTable(AiDayPlan day) {
+    if (day.schedule.isEmpty) {
+      return _buildActivitiesFallback(day);
+    }
+
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(14)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowColor: WidgetStateProperty.all(const Color(0xFFD20A0A)),
+
+          headingTextStyle: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 12,
+          ),
+
+          dataTextStyle: const TextStyle(
+            color: Color(0xFF172033),
+            fontSize: 12,
+            height: 1.35,
+          ),
+
+          columnSpacing: 18,
+          horizontalMargin: 12,
+
+          columns: const [
+            DataColumn(label: Text('Thời gian')),
+            DataColumn(label: Text('Hoạt động')),
+            DataColumn(label: Text('Địa điểm')),
+            DataColumn(label: Text('Phương tiện')),
+            DataColumn(label: Text('Chi phí')),
+            DataColumn(label: Text('Ghi chú')),
+          ],
+
+          rows: day.schedule.map((item) {
+            return DataRow(
+              cells: [
+                DataCell(SizedBox(width: 80, child: Text(item.time))),
+
+                DataCell(SizedBox(width: 125, child: Text(item.activity))),
+
+                DataCell(SizedBox(width: 125, child: Text(item.place))),
+
+                DataCell(
+                  SizedBox(
+                    width: 90,
+                    child: Text(item.transport.isEmpty ? '—' : item.transport),
+                  ),
+                ),
+
+                DataCell(
+                  SizedBox(
+                    width: 85,
+                    child: Text(item.cost <= 0 ? '—' : _formatMoney(item.cost)),
+                  ),
+                ),
+
+                DataCell(
+                  SizedBox(
+                    width: 155,
+                    child: Text(item.note.isEmpty ? '—' : item.note),
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // FALLBACK ACTIVITIES
+  // ============================================================
+
+  Widget _buildActivitiesFallback(AiDayPlan day) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: day.activities.map((activity) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.circle, size: 7, color: Color(0xFFD20A0A)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    activity,
+                    style: const TextStyle(fontSize: 13, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ============================================================
+  // BUDGET
+  // ============================================================
+
+  Widget _buildBudget(AiTravelPlan plan) {
+    final budget = plan.budget;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          _budgetRow('Khách sạn', budget.hotel, Icons.hotel_outlined),
+          _budgetRow('Ăn uống', budget.food, Icons.restaurant_outlined),
+          _budgetRow(
+            'Di chuyển',
+            budget.transport,
+            Icons.directions_car_outlined,
+          ),
+          _budgetRow(
+            'Hoạt động',
+            budget.activities,
+            Icons.local_activity_outlined,
+          ),
+          _budgetRow('Khác', budget.other, Icons.more_horiz),
+
+          const Divider(height: 24),
+
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'TỔNG DỰ KIẾN',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                ),
+              ),
+              Text(
+                _formatMoney(budget.total),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFFD97706),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // BUDGET ROW
+  // ============================================================
+
+  Widget _budgetRow(String title, int value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 19, color: const Color(0xFF64748B)),
+          const SizedBox(width: 10),
+          Expanded(child: Text(title, style: const TextStyle(fontSize: 13))),
+          Text(
+            _formatMoney(value),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // RESTAURANTS
+  // ============================================================
+
+  Widget _buildRestaurants(AiTravelPlan plan) {
+    if (plan.restaurants.isEmpty) {
+      return _emptyCard('Chưa có nhà hàng được đề xuất.');
+    }
+
+    return Column(
+      children: plan.restaurants.map((restaurant) {
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.restaurant, color: Color(0xFFD97706)),
+              ),
+
+              const SizedBox(width: 12),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      restaurant.name,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+
+                    const SizedBox(height: 5),
+
+                    Text(
+                      restaurant.description,
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+
+                    const SizedBox(height: 7),
+
+                    Text(
+                      _formatMoney(restaurant.estimatedCost),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ============================================================
+  // PLACES
+  // ============================================================
+
+  Widget _buildPlaces(AiTravelPlan plan) {
+    if (plan.places.isEmpty) {
+      return _emptyCard('Chưa có địa điểm được đề xuất.');
+    }
+
+    return Column(
+      children: plan.places.map((place) {
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.place, color: Color(0xFF2563EB)),
+              ),
+
+              const SizedBox(width: 12),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      place.name,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+
+                    const SizedBox(height: 5),
+
+                    Text(
+                      place.description,
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+
+                    const SizedBox(height: 7),
+
+                    Text(
+                      _formatMoney(place.estimatedCost),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ============================================================
+  // AI CHAT BOX
+  // ============================================================
+
+  Widget _buildAiChatBox() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.auto_awesome, color: Colors.white),
+              ),
+
+              const SizedBox(width: 12),
+
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Trợ lý AI LuxeStay',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Yêu cầu AI chỉnh sửa kế hoạch',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          TextField(
+            controller: _chatController,
+            minLines: 1,
+            maxLines: 4,
+            textInputAction: TextInputAction.send,
+            onSubmitted: (_) {
+              if (!_isChatLoading) {
+                _sendChatMessage();
+              }
+            },
+            decoration: InputDecoration(
+              hintText: 'Ví dụ: Đổi ngày 2 thành đi Bà Nà Hills...',
+              filled: true,
+              fillColor: const Color(0xFFF7F8FC),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.all(14),
+              suffixIcon: IconButton(
+                onPressed: _isChatLoading ? null : _sendChatMessage,
+                icon: _isChatLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send_rounded),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _chatSuggestion('Đổi lịch ngày 2'),
+              _chatSuggestion('Giảm chi phí'),
+              _chatSuggestion('Thêm địa điểm tham quan'),
+              _chatSuggestion('Thêm nhà hàng'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // CHAT SUGGESTION
+  // ============================================================
+
+  Widget _chatSuggestion(String text) {
+    return InkWell(
+      onTap: () {
+        _useChatSuggestion(text);
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // EMPTY CARD
+  // ============================================================
+
+  Widget _emptyCard(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(color: Colors.grey, fontSize: 13),
+      ),
+    );
+  }
+}

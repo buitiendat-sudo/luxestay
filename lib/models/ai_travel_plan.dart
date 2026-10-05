@@ -1,4 +1,3 @@
-
 class AiTravelPlan {
   const AiTravelPlan({
     required this.destination,
@@ -23,9 +22,7 @@ class AiTravelPlan {
       destination: json['destination'] as String? ?? '',
       summary: json['summary'] as String? ?? '',
       budget: AiBudget.fromJson(
-        Map<String, dynamic>.from(
-          json['budget'] as Map? ?? const {},
-        ),
+        Map<String, dynamic>.from(json['budget'] as Map? ?? const {}),
       ),
       hotels: (json['hotels'] as List? ?? const [])
           .map(
@@ -36,26 +33,34 @@ class AiTravelPlan {
           .toList(),
       itinerary: (json['itinerary'] as List? ?? const [])
           .map(
-            (item) => AiDayPlan.fromJson(
-              Map<String, dynamic>.from(item as Map),
-            ),
+            (item) =>
+                AiDayPlan.fromJson(Map<String, dynamic>.from(item as Map)),
           )
           .toList(),
       restaurants: (json['restaurants'] as List? ?? const [])
           .map(
-            (item) => AiRestaurant.fromJson(
-              Map<String, dynamic>.from(item as Map),
-            ),
+            (item) =>
+                AiRestaurant.fromJson(Map<String, dynamic>.from(item as Map)),
           )
           .toList(),
       places: (json['places'] as List? ?? const [])
           .map(
-            (item) => AiPlace.fromJson(
-              Map<String, dynamic>.from(item as Map),
-            ),
+            (item) => AiPlace.fromJson(Map<String, dynamic>.from(item as Map)),
           )
           .toList(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'destination': destination,
+      'summary': summary,
+      'budget': budget.toJson(),
+      'hotels': hotels.map((e) => e.toJson()).toList(),
+      'itinerary': itinerary.map((e) => e.toJson()).toList(),
+      'restaurants': restaurants.map((e) => e.toJson()).toList(),
+      'places': places.map((e) => e.toJson()).toList(),
+    };
   }
 }
 
@@ -88,6 +93,17 @@ class AiBudget {
       total: value('total'),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'hotel': hotel,
+      'food': food,
+      'transport': transport,
+      'activities': activities,
+      'other': other,
+      'total': total,
+    };
+  }
 }
 
 class AiHotelRecommendation {
@@ -108,9 +124,17 @@ class AiHotelRecommendation {
       propertyId: json['propertyId'] as String? ?? '',
       roomId: json['roomId'] as String? ?? '',
       reason: json['reason'] as String? ?? '',
-      estimatedTotal:
-          (json['estimatedTotal'] as num?)?.toInt() ?? 0,
+      estimatedTotal: (json['estimatedTotal'] as num?)?.toInt() ?? 0,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'propertyId': propertyId,
+      'roomId': roomId,
+      'reason': reason,
+      'estimatedTotal': estimatedTotal,
+    };
   }
 }
 
@@ -120,23 +144,83 @@ class AiDayPlan {
     required this.title,
     required this.activities,
     required this.estimatedCost,
+    required this.schedule,
   });
 
   final int day;
   final String title;
+
+  // Giữ lại để tương thích với code cũ.
   final List<String> activities;
+
   final int estimatedCost;
+
+  // Bảng lịch trình chi tiết.
+  final List<AiScheduleItem> schedule;
 
   factory AiDayPlan.fromJson(Map<String, dynamic> json) {
     return AiDayPlan(
       day: (json['day'] as num?)?.toInt() ?? 1,
       title: json['title'] as String? ?? '',
-      activities: List<String>.from(
-        json['activities'] as List? ?? const [],
-      ),
-      estimatedCost:
-          (json['estimatedCost'] as num?)?.toInt() ?? 0,
+      activities: List<String>.from(json['activities'] as List? ?? const []),
+      estimatedCost: (json['estimatedCost'] as num?)?.toInt() ?? 0,
+      schedule: (json['schedule'] as List? ?? const [])
+          .map(
+            (item) =>
+                AiScheduleItem.fromJson(Map<String, dynamic>.from(item as Map)),
+          )
+          .toList(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'day': day,
+      'title': title,
+      'activities': activities,
+      'estimatedCost': estimatedCost,
+      'schedule': schedule.map((e) => e.toJson()).toList(),
+    };
+  }
+}
+
+class AiScheduleItem {
+  const AiScheduleItem({
+    required this.time,
+    required this.activity,
+    required this.place,
+    required this.transport,
+    required this.cost,
+    required this.note,
+  });
+
+  final String time;
+  final String activity;
+  final String place;
+  final String transport;
+  final int cost;
+  final String note;
+
+  factory AiScheduleItem.fromJson(Map<String, dynamic> json) {
+    return AiScheduleItem(
+      time: json['time'] as String? ?? '',
+      activity: json['activity'] as String? ?? '',
+      place: json['place'] as String? ?? '',
+      transport: json['transport'] as String? ?? '',
+      cost: (json['cost'] as num?)?.toInt() ?? 0,
+      note: json['note'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'time': time,
+      'activity': activity,
+      'place': place,
+      'transport': transport,
+      'cost': cost,
+      'note': note,
+    };
   }
 }
 
@@ -155,9 +239,16 @@ class AiRestaurant {
     return AiRestaurant(
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
-      estimatedCost:
-          (json['estimatedCost'] as num?)?.toInt() ?? 0,
+      estimatedCost: (json['estimatedCost'] as num?)?.toInt() ?? 0,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'description': description,
+      'estimatedCost': estimatedCost,
+    };
   }
 }
 
@@ -176,9 +267,15 @@ class AiPlace {
     return AiPlace(
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
-      estimatedCost:
-          (json['estimatedCost'] as num?)?.toInt() ?? 0,
+      estimatedCost: (json['estimatedCost'] as num?)?.toInt() ?? 0,
     );
   }
-}
 
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'description': description,
+      'estimatedCost': estimatedCost,
+    };
+  }
+}

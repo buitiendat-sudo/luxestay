@@ -12,6 +12,9 @@ class Room {
     required this.images,
     required this.amenities,
     required this.availableCount,
+    this.bedCount = 1,
+    this.maxGuests = 2,
+    this.featuredAmenities = const [],
   });
 
   final String id;
@@ -29,6 +32,9 @@ class Room {
 
   final List<String> amenities;
   final int availableCount;
+  final int bedCount;
+  final int maxGuests;
+  final List<String> featuredAmenities;
 
   factory Room.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> document,
@@ -73,6 +79,11 @@ class Room {
           (data['availableCount'] as num?)
                   ?.toInt() ??
               0,
+      bedCount: (data['bedCount'] as num?)?.toInt() ?? 1,
+      maxGuests: (data['maxGuests'] as num?)?.toInt() ?? 2,
+      featuredAmenities: List<String>.from(
+        data['featuredAmenities'] as List? ?? const [],
+      ),
     );
   }
 
@@ -87,6 +98,9 @@ class Room {
       'images': images,
       'amenities': amenities,
       'availableCount': availableCount,
+      'bedCount': bedCount,
+      'maxGuests': maxGuests,
+      'featuredAmenities': featuredAmenities,
     };
   }
 }

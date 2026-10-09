@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import 'owner_onboarding_screen.dart';
 import '../../main.dart';
 import 'login_screen.dart';
 import 'welcome_screen.dart';
+import '../owner/owner_dashboard_screen.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -21,10 +23,21 @@ class _AuthGateState extends State<AuthGate> {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         if (authProvider.isLoggedIn) {
+          _showWelcome = false;
+          if (authProvider.isCheckingRole) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
           if (authProvider.isAdmin) {
             return const AdminDashboardScreen();
           }
-
+          if (authProvider.isOwner) {
+            if (!authProvider.ownerOnboardingComplete) {
+              return const OwnerOnboardingScreen();
+            }
+            return const OwnerDashboardScreen();
+          }
           return const MainNavigationScreen();
         }
 

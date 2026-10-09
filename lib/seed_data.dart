@@ -26,13 +26,18 @@ class SeedData {
         'brand': 'Vinpearl',
         'location': 'Phú Quốc',
         'address': 'Bãi Dài, Phú Quốc',
-        'description':
-            'Nghỉ dưỡng bên bãi biển Bãi Dài với hồ bơi, spa, nhà hàng và không gian phù hợp cho kỳ nghỉ gia đình.',
+        'description': 'Nghỉ dưỡng bên bãi biển Bãi Dài với hồ bơi, spa, nhà hàng và không gian phù hợp cho kỳ nghỉ gia đình.',
         'rating': 4.8,
         'reviewCount': 1250,
         'pricePerNight': 2500000,
         'category': 'Resort',
         'occupancyRate': 78,
+        'currency': 'VND',
+        'checkInTime': '15:00',
+        'checkOutTime': '12:00',
+        'cancellationPolicy': 'Miễn phí hủy trước ngày nhận phòng 7 ngày',
+        'isDemo': true,
+        'dataSource': 'synthetic-demo',
         'image': 'https://images.unsplash.com/photo-1566073771259-6a8506099945',
         'amenities': ['Hồ bơi', 'WiFi', 'Spa', 'Nhà hàng', 'Bãi biển riêng'],
       },
@@ -42,13 +47,18 @@ class SeedData {
         'brand': 'InterContinental',
         'location': 'Phú Quốc',
         'address': 'Bãi Trường, Phú Quốc',
-        'description':
-            'Khu nghỉ dưỡng cao cấp bên Bãi Trường, nổi bật với tầm nhìn biển, hồ bơi ngoài trời và dịch vụ chăm sóc chuẩn quốc tế.',
+        'description': 'Khu nghỉ dưỡng cao cấp bên Bãi Trường, nổi bật với tầm nhìn biển, hồ bơi ngoài trời và dịch vụ chăm sóc chuẩn quốc tế.',
         'rating': 4.9,
         'reviewCount': 980,
         'pricePerNight': 4200000,
         'category': 'Luxury',
         'occupancyRate': 85,
+        'currency': 'VND',
+        'checkInTime': '15:00',
+        'checkOutTime': '12:00',
+        'cancellationPolicy': 'Miễn phí hủy trước ngày nhận phòng 7 ngày',
+        'isDemo': true,
+        'dataSource': 'synthetic-demo',
         'image': 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b',
         'amenities': [
           'Hồ bơi',
@@ -65,13 +75,18 @@ class SeedData {
         'brand': 'Premier',
         'location': 'Phú Quốc',
         'address': 'Mũi Ông Đội, Phú Quốc',
-        'description':
-            'Quần thể biệt thự riêng tư tại Mũi Ông Đội, có hồ bơi riêng và khung cảnh biển phù hợp cho kỳ nghỉ thư giãn.',
+        'description': 'Quần thể biệt thự riêng tư tại Mũi Ông Đội, có hồ bơi riêng và khung cảnh biển phù hợp cho kỳ nghỉ thư giãn.',
         'rating': 4.8,
         'reviewCount': 870,
         'pricePerNight': 5200000,
         'category': 'Villa',
         'occupancyRate': 72,
+        'currency': 'VND',
+        'checkInTime': '15:00',
+        'checkOutTime': '12:00',
+        'cancellationPolicy': 'Miễn phí hủy trước ngày nhận phòng 7 ngày',
+        'isDemo': true,
+        'dataSource': 'synthetic-demo',
         'image': 'https://images.unsplash.com/photo-1601918774946-25832a4be0d6',
         'amenities': [
           'Private Pool',
@@ -87,13 +102,18 @@ class SeedData {
         'brand': 'Fusion',
         'location': 'Phú Quốc',
         'address': 'Cửa Cạn, Phú Quốc',
-        'description':
-            'Khu nghỉ dưỡng yên bình tại Cửa Cạn, kết hợp thiên nhiên xanh, spa và các hoạt động thư giãn cho du khách.',
+        'description': 'Khu nghỉ dưỡng yên bình tại Cửa Cạn, kết hợp thiên nhiên xanh, spa và các hoạt động thư giãn cho du khách.',
         'rating': 4.7,
         'reviewCount': 760,
         'pricePerNight': 3900000,
         'category': 'Resort',
         'occupancyRate': 69,
+        'currency': 'VND',
+        'checkInTime': '15:00',
+        'checkOutTime': '12:00',
+        'cancellationPolicy': 'Miễn phí hủy trước ngày nhận phòng 5 ngày',
+        'isDemo': true,
+        'dataSource': 'synthetic-demo',
         'image': 'https://images.unsplash.com/photo-1540541338287-41700207dee6',
         'amenities': ['Hồ bơi', 'WiFi', 'Spa', 'Yoga', 'Nhà hàng'],
       },
@@ -103,13 +123,18 @@ class SeedData {
         'brand': 'Salinda',
         'location': 'Phú Quốc',
         'address': 'Cửa Lấp, Phú Quốc',
-        'description':
-            'Resort ven biển tại Cửa Lấp với thiết kế nhiệt đới, hồ bơi, nhà hàng và không gian nghỉ dưỡng thoải mái.',
+        'description': 'Resort ven biển tại Cửa Lấp với thiết kế nhiệt đới, hồ bơi, nhà hàng và không gian nghỉ dưỡng thoải mái.',
         'rating': 4.7,
         'reviewCount': 620,
         'pricePerNight': 3100000,
         'category': 'Resort',
         'occupancyRate': 65,
+        'currency': 'VND',
+        'checkInTime': '14:00',
+        'checkOutTime': '12:00',
+        'cancellationPolicy': 'Miễn phí hủy trước ngày nhận phòng 5 ngày',
+        'isDemo': true,
+        'dataSource': 'synthetic-demo',
         'image': 'https://images.unsplash.com/photo-1564501049412-61c2a3083791',
         'amenities': ['Hồ bơi', 'WiFi', 'Spa', 'Nhà hàng', 'Gym'],
       },
@@ -119,13 +144,18 @@ class SeedData {
         'brand': 'La Mer',
         'location': 'Phú Quốc',
         'address': 'Dương Đông, Phú Quốc',
-        'description':
-            'Nằm gần trung tâm Dương Đông, resort có khu vườn xanh, hồ bơi và các tiện nghi thuận tiện cho kỳ nghỉ.',
+        'description': 'Nằm gần trung tâm Dương Đông, resort có khu vườn xanh, hồ bơi và các tiện nghi thuận tiện cho kỳ nghỉ.',
         'rating': 4.5,
         'reviewCount': 410,
         'pricePerNight': 1800000,
         'category': 'Resort',
         'occupancyRate': 61,
+        'currency': 'VND',
+        'checkInTime': '14:00',
+        'checkOutTime': '12:00',
+        'cancellationPolicy': 'Miễn phí hủy trước ngày nhận phòng 3 ngày',
+        'isDemo': true,
+        'dataSource': 'synthetic-demo',
         'image': 'https://images.unsplash.com/photo-1566665797739-1674de7a421a',
         'amenities': ['Hồ bơi', 'WiFi', 'Nhà hàng', 'Vườn'],
       },
@@ -135,13 +165,18 @@ class SeedData {
         'brand': 'Novotel',
         'location': 'Phú Quốc',
         'address': 'Bãi Trường, Phú Quốc',
-        'description':
-            'Khu nghỉ dưỡng hiện đại gần Bãi Trường, thuận tiện khám phá đảo với hồ bơi, nhà hàng và tiện nghi cho gia đình.',
+        'description': 'Khu nghỉ dưỡng hiện đại gần Bãi Trường, thuận tiện khám phá đảo với hồ bơi, nhà hàng và tiện nghi cho gia đình.',
         'rating': 4.6,
         'reviewCount': 540,
         'pricePerNight': 2700000,
         'category': 'Resort',
         'occupancyRate': 74,
+        'currency': 'VND',
+        'checkInTime': '15:00',
+        'checkOutTime': '12:00',
+        'cancellationPolicy': 'Miễn phí hủy trước ngày nhận phòng 5 ngày',
+        'isDemo': true,
+        'dataSource': 'synthetic-demo',
         'image': 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa',
         'amenities': ['Hồ bơi', 'WiFi', 'Spa', 'Nhà hàng', 'Gym'],
       },
@@ -151,13 +186,18 @@ class SeedData {
         'brand': 'Dusit Princess',
         'location': 'Phú Quốc',
         'address': 'Cửa Lấp, Phú Quốc',
-        'description':
-            'Khu nghỉ dưỡng hướng biển với bãi cát riêng, hồ bơi và dịch vụ thư giãn, thích hợp cho chuyến nghỉ dưỡng.',
+        'description': 'Khu nghỉ dưỡng hướng biển với bãi cát riêng, hồ bơi và dịch vụ thư giãn, thích hợp cho chuyến nghỉ dưỡng.',
         'rating': 4.6,
         'reviewCount': 690,
         'pricePerNight': 2900000,
         'category': 'Beach Resort',
         'occupancyRate': 71,
+        'currency': 'VND',
+        'checkInTime': '15:00',
+        'checkOutTime': '12:00',
+        'cancellationPolicy': 'Miễn phí hủy trước ngày nhận phòng 5 ngày',
+        'isDemo': true,
+        'dataSource': 'synthetic-demo',
         'image': 'https://images.unsplash.com/photo-1571896349842-33c89424de2d',
         'amenities': ['Hồ bơi', 'WiFi', 'Spa', 'Nhà hàng', 'Bãi biển riêng'],
       },
@@ -198,7 +238,21 @@ class SeedData {
             'https://images.unsplash.com/photo-1584132967334-10e028bd69f7',
             'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c',
           ],
-          'amenities': ['Ocean View', 'WiFi', 'Breakfast', 'TV', 'Minibar'],
+          'featuredAmenities': [
+            'Ban công / sân hiên',
+            'Máy lạnh',
+            'WiFi miễn phí',
+            'Minibar',
+          ],
+          'amenities': [
+            'Nước đóng chai miễn phí',
+            'TV',
+            'Bàn làm việc',
+            'Dép đi trong phòng',
+            'Máy sấy tóc',
+          ],
+          'bedCount': 1,
+          'maxGuests': 2,
           'availableCount': 5,
         },
 
@@ -584,6 +638,14 @@ class SeedData {
         final roomId = room['id'] as String;
 
         final data = Map<String, dynamic>.from(room)..remove('id');
+        data['currency'] = 'VND';
+        data['isOnSale'] = true;
+        data['isDemo'] = true;
+        data['bedCount'] ??= 1;
+        data['maxGuests'] ??= 2;
+        data['featuredAmenities'] ??= List<String>.from(
+          (data['amenities'] as List? ?? const []).take(4),
+        );
 
         await _db
             .collection('properties')
@@ -602,44 +664,58 @@ class SeedData {
   static Future<void> _seedUsers() async {
     final users = {
       'demo-customer': {
+        'uid': 'demo-customer',
         'displayName': 'Nguyễn Văn An',
         'email': 'customer@luxestay.vn',
         'phone': '0901234567',
         'role': 'CUSTOMER',
         'avatar': '',
+        'city': 'Hồ Chí Minh',
+        'isDemo': true,
         'createdAt': FieldValue.serverTimestamp(),
       },
 
       'customer-02': {
+        'uid': 'customer-02',
         'displayName': 'Trần Minh Anh',
         'email': 'minhanh@luxestay.vn',
         'phone': '0912345678',
         'role': 'CUSTOMER',
         'avatar': '',
+        'city': 'Hà Nội',
+        'isDemo': true,
         'createdAt': FieldValue.serverTimestamp(),
       },
 
       'customer-03': {
+        'uid': 'customer-03',
         'displayName': 'Lê Hoàng Nam',
         'email': 'hoangnam@luxestay.vn',
         'phone': '0923456789',
         'role': 'CUSTOMER',
         'avatar': '',
+        'city': 'Đà Nẵng',
+        'isDemo': true,
         'createdAt': FieldValue.serverTimestamp(),
       },
 
       'demo-admin': {
+        'uid': 'demo-admin',
         'displayName': 'LuxeStay Admin',
         'email': 'admin@luxestay.vn',
         'phone': '0909999999',
         'role': 'ADMIN',
         'avatar': '',
+        'isDemo': true,
         'createdAt': FieldValue.serverTimestamp(),
       },
     };
 
     for (final entry in users.entries) {
-      await _db.collection('users').doc(entry.key).set(entry.value);
+      await _db
+          .collection('users')
+          .doc(entry.key)
+          .set(entry.value, SetOptions(merge: true));
     }
 
     // ==========================================================
@@ -665,6 +741,7 @@ class SeedData {
             .doc(propertyId)
             .set({
               'propertyId': propertyId,
+              'isDemo': true,
               'createdAt': FieldValue.serverTimestamp(),
             });
       }
@@ -676,62 +753,336 @@ class SeedData {
   // ============================================================
 
   static Future<void> _seedBookings() async {
-    final bookings = {
-      'booking-demo-01': {
-        'userId': 'demo-customer',
-        'propertyId': 'vinpearl-phu-quoc',
-        'propertyName': 'Vinpearl Resort Phú Quốc',
-        'roomId': 'deluxe-ocean',
-        'roomName': 'Deluxe Ocean View',
-        'checkIn': Timestamp.fromDate(DateTime(2026, 10, 10)),
-        'checkOut': Timestamp.fromDate(DateTime(2026, 10, 13)),
-        'guests': 2,
-        'rooms': 1,
-        'pricePerNight': 2500000,
-        'totalNights': 3,
-        'totalPrice': 7500000,
-        'status': 'confirmed',
-        'createdAt': FieldValue.serverTimestamp(),
-      },
-
-      'booking-demo-02': {
-        'userId': 'demo-customer',
-        'propertyId': 'intercontinental-phu-quoc',
-        'propertyName': 'InterContinental Phú Quốc',
-        'roomId': 'ocean-suite',
-        'roomName': 'Ocean Suite',
-        'checkIn': Timestamp.fromDate(DateTime(2026, 11, 5)),
-        'checkOut': Timestamp.fromDate(DateTime(2026, 11, 7)),
-        'guests': 2,
-        'rooms': 1,
-        'pricePerNight': 6500000,
-        'totalNights': 2,
-        'totalPrice': 13000000,
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-      },
-
-      'booking-demo-03': {
-        'userId': 'customer-02',
-        'propertyId': 'fusion-resort-phu-quoc',
-        'propertyName': 'Fusion Resort Phú Quốc',
-        'roomId': 'pool-villa',
-        'roomName': 'Pool Villa',
-        'checkIn': Timestamp.fromDate(DateTime(2026, 9, 28)),
-        'checkOut': Timestamp.fromDate(DateTime(2026, 10, 1)),
-        'guests': 2,
-        'rooms': 1,
-        'pricePerNight': 3900000,
-        'totalNights': 3,
-        'totalPrice': 11700000,
-        'status': 'confirmed',
-        'createdAt': FieldValue.serverTimestamp(),
-      },
-    };
-
-    for (final entry in bookings.entries) {
+    for (final entry in bookingSamples().entries) {
       await _db.collection('bookings').doc(entry.key).set(entry.value);
     }
+  }
+
+  static Map<String, Map<String, dynamic>> bookingSamples({DateTime? now}) {
+    final current = now ?? DateTime.now();
+    final today = DateTime(current.year, current.month, current.day);
+    final weekStart = today.subtract(Duration(days: today.weekday - 1));
+    final dayBeforeWeek = weekStart.subtract(const Duration(days: 1));
+    final monthOnlyDate = dayBeforeWeek.month == today.month
+        ? dayBeforeWeek
+        : today;
+    final previousMonthDate = DateTime(
+      today.year,
+      today.month,
+      1,
+    ).subtract(const Duration(days: 10));
+    final monthOnlyStatus = monthOnlyDate.isBefore(today)
+        ? 'checked_out'
+        : 'confirmed';
+
+    return {
+      'booking-demo-01': _bookingSample(
+        userId: 'demo-customer',
+        propertyId: 'vinpearl-phu-quoc',
+        propertyName: 'Vinpearl Resort Phú Quốc',
+        roomId: 'deluxe-ocean',
+        roomName: 'Deluxe Ocean View',
+        bookedAt: today,
+        pricePerNight: 2500000,
+        totalNights: 3,
+        totalPrice: 7500000,
+        paymentStatus: 'paid',
+        status: 'confirmed',
+        bookingSequence: 1,
+      ),
+      'booking-demo-02': _bookingSample(
+        userId: 'demo-customer',
+        propertyId: 'intercontinental-phu-quoc',
+        propertyName: 'InterContinental Phú Quốc',
+        roomId: 'ocean-suite',
+        roomName: 'Ocean Suite',
+        bookedAt: today,
+        pricePerNight: 6500000,
+        totalNights: 2,
+        totalPrice: 13000000,
+        paymentStatus: 'paid',
+        status: 'confirmed',
+        bookingSequence: 2,
+      ),
+      'booking-demo-03': _bookingSample(
+        userId: 'customer-02',
+        propertyId: 'premier-village-phu-quoc',
+        propertyName: 'Premier Village Phú Quốc',
+        roomId: 'ocean-villa',
+        roomName: 'Ocean Villa',
+        bookedAt: today,
+        pricePerNight: 6800000,
+        totalNights: 2,
+        totalPrice: 13600000,
+        paymentStatus: 'paid',
+        status: 'confirmed',
+        guests: 4,
+        bookingSequence: 3,
+      ),
+      'booking-demo-04': _bookingSample(
+        userId: 'customer-03',
+        propertyId: 'vinpearl-phu-quoc',
+        propertyName: 'Vinpearl Resort Phú Quốc',
+        roomId: 'deluxe-garden',
+        roomName: 'Deluxe Garden View',
+        bookedAt: today,
+        pricePerNight: 2200000,
+        totalNights: 2,
+        totalPrice: 4400000,
+        paymentStatus: 'paid',
+        status: 'confirmed',
+        bookingSequence: 4,
+      ),
+      'booking-demo-05': _bookingSample(
+        userId: 'customer-02',
+        propertyId: 'fusion-resort-phu-quoc',
+        propertyName: 'Fusion Resort Phú Quốc',
+        roomId: 'garden-villa',
+        roomName: 'Garden Pool Villa',
+        bookedAt: today,
+        pricePerNight: 4500000,
+        totalNights: 2,
+        totalPrice: 9000000,
+        paymentStatus: 'paid',
+        status: 'confirmed',
+        guests: 3,
+        bookingSequence: 5,
+      ),
+      'booking-demo-06': _bookingSample(
+        userId: 'customer-03',
+        propertyId: 'salinda-resort-phu-quoc',
+        propertyName: 'Salinda Resort Phú Quốc',
+        roomId: 'pool-villa',
+        roomName: 'Salinda Pool Villa',
+        bookedAt: monthOnlyDate,
+        checkInOffsetDays: 1,
+        pricePerNight: 4800000,
+        totalNights: 2,
+        totalPrice: 9600000,
+        paymentStatus: 'paid',
+        status: monthOnlyStatus,
+        guests: 3,
+        bookingSequence: 6,
+      ),
+      'booking-demo-07': _bookingSample(
+        userId: 'demo-customer',
+        propertyId: 'salinda-resort-phu-quoc',
+        propertyName: 'Salinda Resort Phú Quốc',
+        roomId: 'pool-villa',
+        roomName: 'Salinda Pool Villa',
+        bookedAt: monthOnlyDate,
+        checkInOffsetDays: 1,
+        pricePerNight: 4800000,
+        totalNights: 2,
+        totalPrice: 9600000,
+        paymentStatus: 'paid',
+        status: monthOnlyStatus,
+        guests: 2,
+        bookingSequence: 7,
+      ),
+      'booking-demo-08': _bookingSample(
+        userId: 'customer-02',
+        propertyId: 'novotel-phu-quoc',
+        propertyName: 'Novotel Phú Quốc Resort',
+        roomId: 'deluxe-ocean',
+        roomName: 'Deluxe Ocean View',
+        bookedAt: monthOnlyDate,
+        checkInOffsetDays: 1,
+        pricePerNight: 3300000,
+        totalNights: 2,
+        totalPrice: 6600000,
+        paymentStatus: 'paid',
+        status: monthOnlyStatus,
+        bookingSequence: 8,
+      ),
+      'booking-demo-09': _bookingSample(
+        userId: 'customer-03',
+        propertyId: 'novotel-phu-quoc',
+        propertyName: 'Novotel Phú Quốc Resort',
+        roomId: 'deluxe-ocean',
+        roomName: 'Deluxe Ocean View',
+        bookedAt: monthOnlyDate,
+        checkInOffsetDays: 1,
+        pricePerNight: 3300000,
+        totalNights: 2,
+        totalPrice: 6600000,
+        paymentStatus: 'paid',
+        status: monthOnlyStatus,
+        bookingSequence: 9,
+      ),
+      'booking-demo-10': _bookingSample(
+        userId: 'demo-customer',
+        propertyId: 'novotel-phu-quoc',
+        propertyName: 'Novotel Phú Quốc Resort',
+        roomId: 'superior-room',
+        roomName: 'Superior Room',
+        bookedAt: monthOnlyDate,
+        checkInOffsetDays: 1,
+        pricePerNight: 2700000,
+        totalNights: 2,
+        totalPrice: 5400000,
+        paymentStatus: 'paid',
+        status: monthOnlyStatus,
+        bookingSequence: 10,
+      ),
+      'booking-demo-11': _bookingSample(
+        userId: 'customer-02',
+        propertyId: 'dusit-princess-phu-quoc',
+        propertyName: 'Dusit Princess Moonrise Beach Resort',
+        roomId: 'sea-view-room',
+        roomName: 'Sea View Room',
+        bookedAt: monthOnlyDate,
+        checkInOffsetDays: 1,
+        pricePerNight: 3500000,
+        totalNights: 2,
+        totalPrice: 7000000,
+        paymentStatus: 'paid',
+        status: monthOnlyStatus,
+        bookingSequence: 11,
+      ),
+      'booking-demo-12': _bookingSample(
+        userId: 'customer-03',
+        propertyId: 'dusit-princess-phu-quoc',
+        propertyName: 'Dusit Princess Moonrise Beach Resort',
+        roomId: 'sea-view-room',
+        roomName: 'Sea View Room',
+        bookedAt: monthOnlyDate,
+        checkInOffsetDays: 1,
+        pricePerNight: 3500000,
+        totalNights: 2,
+        totalPrice: 7000000,
+        paymentStatus: 'paid',
+        status: monthOnlyStatus,
+        bookingSequence: 12,
+      ),
+      'booking-demo-13': _bookingSample(
+        userId: 'demo-customer',
+        propertyId: 'la-mer-resort-phu-quoc',
+        propertyName: 'La Mer Resort Phú Quốc',
+        roomId: 'superior-room',
+        roomName: 'Superior Pool View',
+        bookedAt: monthOnlyDate,
+        checkInOffsetDays: 1,
+        pricePerNight: 2100000,
+        totalNights: 2,
+        totalPrice: 4200000,
+        paymentStatus: 'paid',
+        status: monthOnlyStatus,
+        bookingSequence: 13,
+      ),
+      'booking-demo-14': _bookingSample(
+        userId: 'customer-02',
+        propertyId: 'intercontinental-phu-quoc',
+        propertyName: 'InterContinental Phú Quốc',
+        roomId: 'ocean-suite',
+        roomName: 'Ocean Suite',
+        bookedAt: today,
+        pricePerNight: 6500000,
+        totalNights: 2,
+        totalPrice: 13000000,
+        paymentStatus: 'unpaid',
+        status: 'pending',
+        bookingSequence: 14,
+      ),
+      'booking-demo-15': _bookingSample(
+        userId: 'customer-03',
+        propertyId: 'vinpearl-phu-quoc',
+        propertyName: 'Vinpearl Resort Phú Quốc',
+        roomId: 'deluxe-ocean',
+        roomName: 'Deluxe Ocean View',
+        bookedAt: previousMonthDate,
+        pricePerNight: 2500000,
+        totalNights: 3,
+        totalPrice: 7500000,
+        paymentStatus: 'paid',
+        status: 'checked_out',
+        checkInOffsetDays: 1,
+        bookingSequence: 15,
+      ),
+    };
+  }
+
+  static Map<String, dynamic> _bookingSample({
+    required String userId,
+    required String propertyId,
+    required String propertyName,
+    required String roomId,
+    required String roomName,
+    required DateTime bookedAt,
+    required int pricePerNight,
+    required int totalNights,
+    required int totalPrice,
+    required String paymentStatus,
+    required String status,
+    int guests = 2,
+    int rooms = 1,
+    int checkInOffsetDays = 7,
+    required int bookingSequence,
+  }) {
+    final checkIn = DateTime(
+      bookedAt.year,
+      bookedAt.month,
+      bookedAt.day + checkInOffsetDays,
+    );
+
+    final guestsByUserId = <String, Map<String, String>>{
+      'demo-customer': {
+        'name': 'Nguyễn Văn An',
+        'email': 'customer@luxestay.vn',
+        'phone': '0901234567',
+      },
+      'customer-02': {
+        'name': 'Trần Minh Anh',
+        'email': 'minhanh@luxestay.vn',
+        'phone': '0912345678',
+      },
+      'customer-03': {
+        'name': 'Lê Hoàng Nam',
+        'email': 'hoangnam@luxestay.vn',
+        'phone': '0923456789',
+      },
+    };
+    final guest = guestsByUserId[userId];
+    if (guest == null) {
+      throw ArgumentError.value(userId, 'userId', 'Unknown demo guest');
+    }
+
+    final bookingReference =
+        'LS${checkIn.year}${checkIn.month.toString().padLeft(2, '0')}'
+        '${bookingSequence.toString().padLeft(5, '0')}';
+    final bookingCreatedAt = DateTime(
+      bookedAt.year,
+      bookedAt.month,
+      bookedAt.day,
+      9 + bookingSequence % 10,
+      (bookingSequence * 7) % 60,
+    );
+
+    return {
+      'bookingReference': bookingReference,
+      'userId': userId,
+      'customerName': guest['name'],
+      'customerEmail': guest['email'],
+      'customerPhone': guest['phone'],
+      'propertyId': propertyId,
+      'propertyName': propertyName,
+      'roomId': roomId,
+      'roomName': roomName,
+      'checkIn': Timestamp.fromDate(checkIn),
+      'checkOut': Timestamp.fromDate(checkIn.add(Duration(days: totalNights))),
+      'guests': guests,
+      'rooms': rooms,
+      'pricePerNight': pricePerNight,
+      'totalNights': totalNights,
+      'totalPrice': totalPrice,
+      'paymentMethod': 'credit_card',
+      'paymentStatus': paymentStatus,
+      'status': status,
+      'bookingChannel': 'mobile_app',
+      'isDemo': true,
+      'createdAt': Timestamp.fromDate(bookingCreatedAt),
+      'updatedAt': Timestamp.fromDate(bookingCreatedAt),
+    };
   }
 
   // ============================================================
@@ -746,6 +1097,7 @@ class SeedData {
         'propertyId': 'vinpearl-phu-quoc',
         'propertyName': 'Vinpearl Resort Phú Quốc',
         'rating': 5,
+        'isDemo': true,
         'comment':
             'Resort rất đẹp, phòng sạch sẽ và nhân viên phục vụ nhiệt tình.',
         'createdAt': Timestamp.fromDate(DateTime(2026, 8, 15)),
@@ -757,6 +1109,7 @@ class SeedData {
         'propertyId': 'vinpearl-phu-quoc',
         'propertyName': 'Vinpearl Resort Phú Quốc',
         'rating': 4,
+        'isDemo': true,
         'comment': 'Không gian đẹp, view biển rất ấn tượng. Bữa sáng khá ngon.',
         'createdAt': Timestamp.fromDate(DateTime(2026, 8, 20)),
       },
@@ -767,6 +1120,7 @@ class SeedData {
         'propertyId': 'intercontinental-phu-quoc',
         'propertyName': 'InterContinental Phú Quốc',
         'rating': 5,
+        'isDemo': true,
         'comment': 'Phòng rộng và sang trọng. Dịch vụ rất tốt.',
         'createdAt': Timestamp.fromDate(DateTime(2026, 8, 25)),
       },
@@ -777,6 +1131,7 @@ class SeedData {
         'propertyId': 'premier-village-phu-quoc',
         'propertyName': 'Premier Village Phú Quốc',
         'rating': 5,
+        'isDemo': true,
         'comment': 'Villa riêng tư, hồ bơi đẹp và không gian rất yên tĩnh.',
         'createdAt': Timestamp.fromDate(DateTime(2026, 8, 28)),
       },
@@ -787,6 +1142,7 @@ class SeedData {
         'propertyId': 'fusion-resort-phu-quoc',
         'propertyName': 'Fusion Resort Phú Quốc',
         'rating': 4,
+        'isDemo': true,
         'comment': 'Resort đẹp, nhiều cây xanh và không gian thư giãn.',
         'createdAt': Timestamp.fromDate(DateTime(2026, 9, 2)),
       },
@@ -797,6 +1153,7 @@ class SeedData {
         'propertyId': 'salinda-resort-phu-quoc',
         'propertyName': 'Salinda Resort Phú Quốc',
         'rating': 5,
+        'isDemo': true,
         'comment': 'Nhân viên thân thiện, phòng đẹp và rất sạch.',
         'createdAt': Timestamp.fromDate(DateTime(2026, 9, 5)),
       },
@@ -807,6 +1164,7 @@ class SeedData {
         'propertyId': 'novotel-phu-quoc',
         'propertyName': 'Novotel Phú Quốc Resort',
         'rating': 4,
+        'isDemo': true,
         'comment': 'Vị trí thuận tiện, phòng thoải mái và có view đẹp.',
         'createdAt': Timestamp.fromDate(DateTime(2026, 9, 8)),
       },
@@ -817,6 +1175,7 @@ class SeedData {
         'propertyId': 'dusit-princess-phu-quoc',
         'propertyName': 'Dusit Princess Moonrise Beach Resort',
         'rating': 5,
+        'isDemo': true,
         'comment': 'Bãi biển đẹp, hồ bơi sạch và dịch vụ chuyên nghiệp.',
         'createdAt': Timestamp.fromDate(DateTime(2026, 9, 10)),
       },

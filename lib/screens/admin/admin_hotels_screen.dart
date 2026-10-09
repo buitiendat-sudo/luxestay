@@ -7,8 +7,6 @@ import 'package:provider/provider.dart';
 import '../../services/firestore_service.dart';
 import '../../services/google_geocoding_service.dart';
 import '../../widgets/admin_chrome.dart';
-import 'admin_operations_screen.dart';
-import 'admin_rooms_screen.dart';
 
 class AdminHotelsScreen extends StatelessWidget {
   const AdminHotelsScreen({super.key});
@@ -20,25 +18,14 @@ class AdminHotelsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7FB),
       appBar: const AdminHeader(title: 'Quản lý Khách sạn'),
-      bottomNavigationBar: AdminBottomNavigation(
-        selectedIndex: 0,
-        onSelected: (index) {
-          if (index == 0) {
-            Navigator.of(context).popUntil((route) => route.isFirst);
-            return;
-          }
-
-          final page = switch (index) {
-            1 => const AdminRoomMapScreen(),
-            2 => const AdminRoomsScreen(),
-            _ => const AdminCheckinScreen(),
-          };
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => page),
-          );
-        },
+      bottomNavigationBar: const AdminBottomNavigation(
+        selectedIndex: 1,
+        popToParentOnReselect: true,
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showPropertyDialog(context, firestore),
+        icon: const Icon(Icons.add),
+        label: const Text('Thêm khách sạn'),
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: firestore.watchProperties(),
@@ -50,11 +37,6 @@ class AdminHotelsScreen extends StatelessWidget {
           final hotels = snapshot.data!;
 
           final averageRating = _averageRating(hotels);
-
-          final revenue = hotels.fold<int>(
-            0,
-            (total, hotel) => total + _toInt(hotel['monthlyRevenue']),
-          );
 
           final occupancy = _averageOccupancy(hotels);
 
@@ -111,14 +93,6 @@ class AdminHotelsScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 9),
-                    SizedBox(
-                      width: 170,
-                      child: AdminKpiCard(
-                        title: 'Doanh thu tháng',
-                        value: _money(revenue),
-                        icon: Icons.payments_outlined,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -151,19 +125,21 @@ class AdminHotelsScreen extends StatelessWidget {
               if (hotels.isEmpty)
                 const _EmptyHotel()
               else
-                ...hotels.map((hotel) => _HotelCard(hotel: hotel)),
+                ...hotels.map(
+                  (hotel) => _HotelCard(
+                    hotel: hotel,
+                    onEdit: () => _showPropertyDialog(
+                      context,
+                      firestore,
+                      hotel: hotel,
+                    ),
+                  ),
+                ),
             ],
           );
         },
       ),
     );
-  }
-
-  static int _toInt(dynamic value) {
-    if (value is num) {
-      return value.toInt();
-    }
-    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   static double _averageRating(List<Map<String, dynamic>> hotels) {
@@ -190,15 +166,120 @@ class AdminHotelsScreen extends StatelessWidget {
     return total / hotels.length;
   }
 
-  static String _money(int value) {
-    return '${NumberFormat('#,###', 'vi_VN').format(value)} ₫';
+  static Future<void> _showPropertyDialog(
+    BuildContext context,
+    FirestoreService firestore, {
+    Map<String, dynamic>? hotel,
+  }) async {
+    final name = TextEditingController(text: hotel?['name']?.toString() ?? '');
+    final location = TextEditingController(
+      text: hotel?['location']?.toString() ?? '',
+    );
+    final address = TextEditingController(
+      text: hotel?['address']?.toString() ?? '',
+    );
+    final description = TextEditingController(
+      text: hotel?['description']?.toString() ?? '',
+    );
+    final formKey = GlobalKey<FormState>();
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(hotel == null ? 'Thêm khách sạn' : 'Sửa khách sạn'),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _propertyField(name, 'Tên khách sạn'),
+                  _propertyField(location, 'Tỉnh / thành phố'),
+                  _propertyField(address, 'Địa chỉ'),
+                  TextFormField(
+                    controller: description,
+                    decoration: const InputDecoration(labelText: 'Mô tả'),
+                    maxLines: 3,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                final data = <String, dynamic>{
+                  'name': name.text.trim(),
+                  'location': location.text.trim(),
+                  'address': address.text.trim(),
+                  'description': description.text.trim(),
+                };
+                try {
+                  if (hotel == null) {
+                    await firestore.addProperty({
+                      ...data,
+                      'image': '',
+                      'rating': 0,
+                      'reviewCount': 0,
+                      'pricePerNight': 0,
+                      'amenities': <String>[],
+                      'category': 'Hotel',
+                      'isActive': true,
+                    });
+                  } else {
+                    await firestore.updateProperty(
+                      hotel['id'].toString(),
+                      data,
+                    );
+                  }
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                } on FirebaseException catch (error) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(
+                        content: Text('Không thể lưu khách sạn: ${error.message}'),
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Lưu'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      name.dispose();
+      location.dispose();
+      address.dispose();
+      description.dispose();
+    }
+  }
+
+  static Widget _propertyField(TextEditingController controller, String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(labelText: label),
+        validator: (value) => value == null || value.trim().isEmpty
+            ? 'Vui lòng nhập $label'
+            : null,
+      ),
+    );
   }
 }
 
 class _HotelCard extends StatelessWidget {
-  const _HotelCard({required this.hotel});
+  const _HotelCard({required this.hotel, required this.onEdit});
 
   final Map<String, dynamic> hotel;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -370,21 +451,8 @@ class _HotelCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Mở màn điều phối phòng.'),
-                            ),
-                          );
-                        },
-                        child: const Text('Điều phối'),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {},
-                        child: const Text('Sửa'),
+                        onPressed: onEdit,
+                        child: const Text('Sửa thông tin'),
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -392,8 +460,22 @@ class _HotelCard extends StatelessWidget {
                       child: FilledButton(
                         onPressed: id.isEmpty
                             ? null
-                            : () {
-                                firestore.setPropertyActiveStatus(id, !active);
+                            : () async {
+                                try {
+                                  await firestore.setPropertyActiveStatus(
+                                    id,
+                                    !active,
+                                  );
+                                } on FirebaseException catch (error) {
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Không thể cập nhật khách sạn: ${error.message}',
+                                      ),
+                                    ),
+                                  );
+                                }
                               },
                         style: FilledButton.styleFrom(
                           backgroundColor: active

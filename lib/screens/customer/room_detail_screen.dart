@@ -27,6 +27,7 @@ class _RoomDetailScreenState
       PageController();
 
   int _currentImageIndex = 0;
+  bool _showAllAmenities = false;
 
   Room get room => widget.room;
   Property get property => widget.property;
@@ -40,6 +41,21 @@ class _RoomDetailScreenState
       '#,###',
       'vi_VN',
     ).format(price);
+  }
+
+  IconData _amenityIcon(String amenity) {
+    final value = amenity.toLowerCase();
+    if (value.contains('wifi')) return Icons.wifi_outlined;
+    if (value.contains('hồ bơi') || value.contains('pool')) {
+      return Icons.pool_outlined;
+    }
+    if (value.contains('máy lạnh') || value.contains('điều hòa')) {
+      return Icons.ac_unit_outlined;
+    }
+    if (value.contains('ban công')) return Icons.balcony_outlined;
+    if (value.contains('minibar')) return Icons.kitchen_outlined;
+    if (value.contains('tv')) return Icons.tv_outlined;
+    return Icons.check_circle_outline;
   }
 
   // ============================================================
@@ -168,41 +184,65 @@ class _RoomDetailScreenState
                 child: Column(
                   children: [
                     _InfoRow(
-                      icon:
-                          Icons.visibility_outlined,
-                      title: 'View',
-                      value: room.view.isEmpty
-                          ? 'Đang cập nhật'
-                          : room.view,
-                    ),
-
-                    const Divider(
-                      height: 24,
-                    ),
-
-                    _InfoRow(
-                      icon:
-                          Icons.square_foot_outlined,
+                      icon: Icons.square_foot_outlined,
                       title: 'Diện tích',
-                      value:
-                          '${room.area} m²',
+                      value: '${room.area} m²',
                     ),
-
-                    const Divider(
-                      height: 24,
-                    ),
-
+                    const Divider(height: 24),
                     _InfoRow(
                       icon: Icons.bed_outlined,
-                      title: 'Loại giường',
-                      value: room.bedType,
+                      title: 'Giường',
+                      value:
+                          '${room.bedCount} giường${room.bedType.isEmpty ? '' : ' • ${room.bedType}'}',
                     ),
+                    const Divider(height: 24),
+                    _InfoRow(
+                      icon: Icons.people_outline,
+                      title: 'Sức chứa tối đa',
+                      value: '${room.maxGuests} khách',
+                    ),
+                    if (room.view.isNotEmpty) ...[
+                      const Divider(height: 24),
+                      _InfoRow(
+                        icon: Icons.visibility_outlined,
+                        title: 'Hướng nhìn',
+                        value: room.view,
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
 
-            const SizedBox(height: 24),
+            if (room.featuredAmenities.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              Text(
+                'Điểm nổi bật',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              ...room.featuredAmenities.map(
+                (amenity) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _amenityIcon(amenity),
+                        size: 20,
+                        color: const Color(0xFFD97706),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(amenity)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 18),
 
             // ==================================================
             // AMENITIES
@@ -227,58 +267,39 @@ class _RoomDetailScreenState
                   color: Colors.grey.shade600,
                 ),
               )
-            else
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: room.amenities
-                    .map(
-                      (amenity) {
-                        return Container(
-                          padding:
-                              const EdgeInsets
-                                  .symmetric(
-                            horizontal: 14,
-                            vertical: 10,
+            else ...[
+              ...room.amenities
+                  .take(
+                    _showAllAmenities
+                        ? room.amenities.length
+                        : 5,
+                  )
+                  .map(
+                    (amenity) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _amenityIcon(amenity),
+                            size: 19,
+                            color: const Color(0xFFD97706),
                           ),
-                          decoration:
-                              BoxDecoration(
-                            color:
-                                const Color(
-                              0xFFF8FAFC,
-                            ),
-                            borderRadius:
-                                BorderRadius
-                                    .circular(12),
-                            border: Border.all(
-                              color: Colors
-                                  .grey.shade200,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize:
-                                MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons
-                                    .check_circle_outline,
-                                size: 18,
-                                color:
-                                    Color(
-                                  0xFFD97706,
-                                ),
-                              ),
-                              const SizedBox(
-                                width: 6,
-                              ),
-                              Text(amenity),
-                            ],
-                          ),
-                        );
-                      },
-                    )
-                    .toList(),
-              ),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(amenity)),
+                        ],
+                      ),
+                    ),
+                  ),
+              if (room.amenities.length > 5)
+                TextButton(
+                  onPressed: () => setState(
+                    () => _showAllAmenities = !_showAllAmenities,
+                  ),
+                  child: Text(
+                    _showAllAmenities ? 'Thu gọn' : 'Xem thêm tiện nghi',
+                  ),
+                ),
+            ],
 
             const SizedBox(height: 28),
 

@@ -10,13 +10,14 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 
-import 'screens/admin/admin_bookings_screen.dart';
-import 'screens/admin/admin_hotels_screen.dart';
 import 'screens/admin/admin_operations_screen.dart';
-import 'screens/admin/admin_rooms_screen.dart';
+import 'screens/admin/admin_hotels_screen.dart';
 import 'screens/admin/admin_users_screen.dart';
 
 import 'screens/auth/auth_gate.dart';
+import 'screens/owner/owner_bookings_screen.dart';
+import 'screens/owner/owner_dashboard_screen.dart';
+import 'screens/owner/owner_rooms_screen.dart';
 
 import 'screens/customer/account_screen.dart';
 import 'screens/customer/explore_screen.dart';
@@ -24,6 +25,8 @@ import 'screens/customer/favorites_screen.dart';
 import 'screens/customer/trips_screen.dart';
 
 import 'services/firestore_service.dart';
+import 'services/image_storage_service.dart';
+
 import 'widgets/admin_chrome.dart';
 
 Future<void> main() async {
@@ -71,10 +74,19 @@ class LuxestayApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
 
         Provider(create: (_) => FirestoreService()),
+        Provider(create: (_) => ImageStorageService()),
       ],
       child: MaterialApp(
         title: 'LuxeStay',
         debugShowCheckedModeBanner: false,
+        routes: {
+          '/admin/dashboard': (_) => const AdminDashboardScreen(),
+          '/admin/hotels': (_) => const AdminHotelsScreen(),
+          '/admin/users': (_) => const AdminUsersScreen(),
+          '/owner/dashboard': (_) => const OwnerDashboardScreen(),
+          '/owner/rooms': (_) => const OwnerRoomsScreen(),
+          '/owner/bookings': (_) => const OwnerBookingsScreen(),
+        },
 
         // ======================================================
         // THEME
@@ -142,6 +154,58 @@ class MainNavigationScreen extends StatefulWidget {
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
+class AdminDashboardScreen extends StatelessWidget {
+  const AdminDashboardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FF),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        title: const Text(
+          'Tổng quan',
+          style: TextStyle(
+            color: adminInk,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Tài khoản',
+            icon: const CircleAvatar(
+              radius: 16,
+              backgroundColor: adminInk,
+              child: Icon(Icons.person_outline, color: Colors.white, size: 19),
+            ),
+            onSelected: (value) {
+              if (value == 'logout') context.read<AuthProvider>().logout();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 18),
+                    SizedBox(width: 8),
+                    Text('Đăng xuất'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      bottomNavigationBar: const AdminBottomNavigation(selectedIndex: 0),
+      body: const AdminOperationsDashboard(),
+    );
+  }
+}
+
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
 
@@ -165,7 +229,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             _selectedIndex = index;
           });
         },
-
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.explore_outlined),
@@ -191,168 +254,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             label: 'Tài khoản',
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ================================================================
-// ADMIN DASHBOARD
-// ================================================================
-
-class AdminDashboardScreen extends StatelessWidget {
-  const AdminDashboardScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FF),
-
-      appBar: AdminHeader(
-        title: 'Tổng quan',
-
-        onLogout: () {
-          context.read<AuthProvider>().logout();
-        },
-      ),
-
-      bottomNavigationBar: AdminBottomNavigation(
-        selectedIndex: 0,
-
-        onSelected: (index) {
-          if (index == 0) return;
-
-          final page = switch (index) {
-            1 => const AdminRoomMapScreen(),
-            2 => const AdminRoomsScreen(),
-            _ => const AdminCheckinScreen(),
-          };
-
-          Navigator.push(context, MaterialPageRoute(builder: (_) => page));
-        },
-      ),
-
-      body: AdminOperationsDashboard(
-        additionalContent: [
-          const SizedBox(height: 16),
-          const Text(
-            'Quản lý hệ thống',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 8),
-          _ManagementItem(
-            icon: Icons.hotel_outlined,
-            title: 'Quản lý Resort',
-            subtitle: 'Cập nhật thông tin và trạng thái cơ sở',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AdminHotelsScreen()),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _ManagementItem(
-            icon: Icons.calendar_month_outlined,
-            title: 'Tất cả booking',
-            subtitle: 'Duyệt, cập nhật và theo dõi đặt phòng',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AdminBookingsScreen()),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _ManagementItem(
-            icon: Icons.people_outline,
-            title: 'Tài khoản khách hàng',
-            subtitle: 'Danh sách và phân quyền người dùng',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AdminUsersScreen()),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ================================================================
-// MANAGEMENT ITEM
-// ================================================================
-
-class _ManagementItem extends StatelessWidget {
-  const _ManagementItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-
-      borderRadius: BorderRadius.circular(16),
-
-      child: Container(
-        padding: const EdgeInsets.all(16),
-
-        decoration: BoxDecoration(
-          color: Colors.white,
-
-          borderRadius: BorderRadius.circular(16),
-
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF7ED),
-
-                borderRadius: BorderRadius.circular(14),
-              ),
-
-              child: Icon(icon, color: const Color(0xFFD97706)),
-            ),
-
-            const SizedBox(width: 14),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-
-                  const SizedBox(height: 3),
-
-                  Text(
-                    subtitle,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-
-            const Icon(Icons.chevron_right),
-          ],
-        ),
       ),
     );
   }

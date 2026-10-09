@@ -48,47 +48,48 @@ Sau đó kiểm tra lại `lib/firebase_options.dart`, `firebase.json` và file 
 
 - `lib/main.dart`: khởi tạo Firebase, đăng ký Provider, app theme và admin dashboard.
 - `lib/providers/auth_provider.dart`: đăng nhập, đăng ký, logout và đọc role từ `users/{uid}`.
-- `lib/screens/auth/auth_gate.dart`: route người dùng sang customer hoặc admin.
-- `lib/services/auth_service.dart`: gọi Firebase Auth và hiện đang ghi user Firestore trong lúc register.
+- `lib/screens/auth/auth_gate.dart`: route người dùng theo role CUSTOMER, OWNER hoặc ADMIN.
+- `lib/services/auth_service.dart`: gọi Firebase Auth; `AuthProvider` ghi hồ sơ Firestore.
 - `lib/services/firestore_service.dart`: gateway chính cho các collection.
 - `lib/seed_data.dart`: dữ liệu phát triển, không tự chạy khi mở app.
 
-Role admin hiện được xác định bởi chuỗi `ADMIN` trong document Firestore. Đây chỉ là điều hướng UI, không phải lớp bảo mật. Firestore Rules phải kiểm tra role ở phía server.
+Đăng ký công khai chỉ nhận role `CUSTOMER` và `OWNER`. OWNER tạo tài khoản trước, sau đó hoàn tất thông tin khách sạn và chấp thuận điều khoản mẫu trong `lib/screens/auth/owner_onboarding_screen.dart`. Bước này ghi property và bản ghi chấp thuận cùng batch, liên kết qua `users/{uid}.propertyId` và `properties/{propertyId}.ownerId`. Role `ADMIN` phải được cấp nội bộ, không qua form đăng ký. Firestore Rules và callable báo cáo doanh thu enforce quyền ở backend. Điều khoản hiện là nội dung mẫu, không phải hợp đồng pháp lý đã được phê duyệt.
 
 ## 4. Schema Firestore hiện tại
 
 Các collection đang được sử dụng:
 
 - `properties`: resort; các field chính gồm `name`, `location`, `category`, `image`, `pricePerNight`, `rating`, `reviewCount`, `amenities`.
-- `rooms`: được admin service sử dụng cho danh sách phòng và trạng thái `isOnSale`.
+- `properties/{propertyId}`: thêm `ownerId` cho khách sạn do owner tạo.
 - `properties/{propertyId}/rooms`: được customer flow và seed data sử dụng cho phòng thuộc resort.
 - `bookings`: booking với `userId`, `propertyId`, `roomId`, `checkIn`, `checkOut`, `rooms`, `pricePerNight`, `totalNights`, `totalPrice`, `status`.
-- `users`: hồ sơ người dùng, gồm `email`, `displayName` hoặc `name`, `role`.
+- `users`: hồ sơ người dùng, gồm `email`, `displayName` hoặc `name`, `role`, `propertyId` (owner), `isStaff` (nhân sự được admin gán).
 - `users/{userId}/favorites`: resort yêu thích.
 - `reviews`: seed data có ghi, nhưng model/service/UI review chưa hoàn thiện.
 
-### Việc cần xử lý trước khi mở rộng phòng
+### Schema phòng còn collection legacy
 
-Schema phòng đang bị tách làm hai nơi:
+Phòng đang được dùng tại:
 
 - Customer đọc `properties/{propertyId}/rooms`.
-- Admin dashboard và `watchRooms()` đọc top-level `rooms`.
+- Owner quản lý `properties/{propertyId}/rooms`.
+- `FirestoreService.watchRooms()` và các method top-level `rooms` vẫn còn để tương thích dữ liệu cũ; không dùng cho quyền owner/admin mới.
 
-Vì vậy seed room có thể hiện ở customer nhưng admin đếm bằng 0. Không sửa riêng một màn hình để che triệu chứng. Cần chọn một schema chuẩn, migrate dữ liệu, rồi cập nhật cả seed, customer, admin và booking.
+Seed data hiện chủ yếu ghi hạng phòng nested dưới property. Tránh thêm luồng ghi mới vào collection top-level `rooms`.
 
 ## 5. Cảnh báo quan trọng
 
-### P0: Firestore Rules chưa có trong repository
+### P0: Firestore Rules phải được deploy sau thay đổi quyền
 
-Không thấy `firestore.rules` và `firebase.json` chưa cấu hình rules. Các method CRUD client có thể đọc/ghi properties, rooms, bookings, users và favorites. Cần kiểm tra rules đang deploy trên Firebase Console ngay.
+`firestore.rules` đã có trong repository và được khai báo trong `firebase.json`. Phải deploy rules cùng callable function `getRevenueReport` trước khi dùng các luồng mới.
 
-Rules tối thiểu phải bảo đảm:
+Rules giới hạn:
 
 - Chỉ user đăng nhập mới đọc dữ liệu cần thiết.
-- User chỉ sửa profile và booking của chính mình.
-- User không thể tự đổi `role`, giá, tổng tiền hoặc trạng thái booking tùy ý.
-- Chỉ admin được CRUD resort/phòng/user và chuyển trạng thái booking.
-- Booking phải kiểm tra ownership, status transition và dữ liệu bắt buộc.
+- CUSTOMER không thể tự cấp role OWNER/ADMIN hoặc gán mình làm nhân sự.
+- OWNER chỉ sửa phòng và booking có `propertyId` trùng khách sạn được liên kết.
+- ADMIN quản lý property và nhân sự; không đọc booking chi tiết hoặc ghi phòng.
+- Báo cáo doanh thu chỉ trả số liệu tổng hợp qua callable function.
 
 Không dùng việc ẩn nút trên UI làm cơ chế phân quyền.
 
@@ -100,17 +101,13 @@ Hướng sửa: dùng Cloud Function/transaction, đọc lại giá từ Firesto
 
 ### P1: Seed user không phải Firebase Auth user
 
-`lib/seed_data.dart` chỉ tạo document trong `users`; nó không tạo tài khoản Firebase Authentication. Email trong seed không tự đăng nhập được. Nếu cần tài khoản demo, phải tạo Auth users riêng bằng Firebase Console/Admin SDK và ghi đúng UID vào Firestore.
+`lib/seed_data.dart` chỉ tạo document trong `users`; nó không tạo tài khoản Firebase Authentication. Email trong seed không tự đăng nhập được. Property, hồ sơ, đánh giá và booking trong file đều là dữ liệu tổng hợp để demo, có `isDemo: true`, không phải hoạt động khách hàng thật hay số liệu khách sạn đã kiểm chứng. Nếu cần tài khoản demo, phải tạo Auth users riêng bằng Firebase Console/Admin SDK và ghi đúng UID vào Firestore.
 
-### P1: Register có thể tạo Auth user mồ côi
+Để nạp dữ liệu nghiệp vụ cho OWNER đã đăng ký thật, dùng `functions/seed-owner-demo-data.js` với UID của owner. Script kiểm tra liên kết `users/{uid}.propertyId` và `properties/{propertyId}.ownerId`, sau đó tạo phòng, booking và hồ sơ nhân viên demo với ID ổn định. Chỉ chạy trên Firebase Emulator hoặc project test vì Admin SDK bỏ qua Firestore Rules.
 
-`AuthService.register()` tạo Auth user rồi ghi Firestore; `AuthProvider.register()` lại ghi user lần nữa với field/role khác (`name`/`customer` so với `displayName`/`CUSTOMER`). Nếu Firestore lỗi, Auth user vẫn tồn tại và lần đăng ký lại báo email đã dùng.
+### P1: Thanh toán hiện vẫn là mô phỏng phía client
 
-Nên chọn một nơi chịu trách nhiệm tạo user document, thống nhất field/role, và có quy trình rollback hoặc retry rõ ràng.
-
-### P1: AuthGate chưa chờ role
-
-Khi app restore session, `_user` có thể có trước khi `_loadUserRole()` hoàn tất. AuthGate có thể hiển thị customer navigation trong chốc lát cho admin. Thêm trạng thái loading role vào AuthGate; đồng thời vẫn phải bảo vệ bằng Firestore Rules.
+Màn thanh toán hiện tự ghi `paymentStatus: paid` và hiển thị rõ đây là mô phỏng, chưa thu tiền thật. Doanh thu hiện tổng hợp theo trạng thái này; trước khi dùng thật, cần xác thực webhook thanh toán ở backend và cấm client tự đánh dấu đã trả.
 
 ### P2: Dữ liệu xấu bị che giấu
 
@@ -120,11 +117,10 @@ Khi app restore session, `_user` có thể có trước khi `_loadUserRole()` ho
 
 - Quên mật khẩu chưa gọi `sendPasswordResetEmail`.
 - Nút gọi khách và xem chi tiết booking hiện chưa có hành động.
-- Lọc phòng, chỉnh giá và quản lý kho phòng còn placeholder.
-- Thêm tài khoản admin/user chưa hoàn thiện.
+- Gán nhân sự chỉ liên kết hồ sơ Firebase Auth đã tồn tại; tạo Auth user mới cần Admin SDK/backend.
 - Reviews và notification service chưa có luồng hoàn chỉnh.
 - Một số action favorite/share ở customer chưa hoàn thiện.
-- Dashboard booking hiện đếm tổng booking, chưa lọc theo ngày và chưa tính doanh thu thật.
+- Doanh thu hiện dựa trên trạng thái thanh toán mô phỏng, chưa phải số tiền đối soát từ cổng thanh toán.
 
 Khi hoàn thiện một action, thêm test cho cả trạng thái thành công, lỗi mạng/quyền và dữ liệu rỗng.
 
@@ -143,7 +139,7 @@ Khi hoàn thiện một action, thêm test cho cả trạng thái thành công, 
 - [ ] `flutter analyze` sạch.
 - [ ] `flutter test` pass.
 - [ ] Có test cho phần logic mới, không chỉ smoke test.
-- [ ] Firestore Rules đã review và deploy đúng project.
+- [ ] Firestore Rules và callable functions đã review và deploy đúng project.
 - [ ] Không dùng dữ liệu giá/tồn kho từ client làm nguồn sự thật.
 - [ ] Không thêm field/collection mới mà chưa cập nhật schema note.
 - [ ] Kiểm tra loading, empty, error và permission-denied state.

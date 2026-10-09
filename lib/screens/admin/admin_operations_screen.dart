@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/firestore_service.dart';
 import '../../widgets/admin_chrome.dart';
-import 'admin_rooms_screen.dart';
+import '../../widgets/revenue_chart.dart';
 
 const _ink = Color(0xFF111827);
 const _muted = Color(0xFF758096);
@@ -42,6 +42,153 @@ String checkOutStatusTransition(String status) {
   return normalized;
 }
 
+class PropertyRevenueRank {
+  const PropertyRevenueRank({
+    required this.propertyId,
+    required this.propertyName,
+    required this.revenue,
+  });
+
+  final String propertyId;
+  final String propertyName;
+  final int revenue;
+}
+
+List<PropertyRevenueRank> rankPropertiesByRevenue({
+  required List<Map<String, dynamic>> properties,
+  required List<Map<String, dynamic>> bookings,
+  required DateTime today,
+  required String period,
+}) {
+  final day = DateUtils.dateOnly(today);
+  final start = switch (period) {
+    'Tháng này' => DateTime(today.year, today.month),
+    'Hôm nay' => day,
+    _ => day.subtract(Duration(days: day.weekday - 1)),
+  };
+  final end = switch (period) {
+    'Tháng này' => DateTime(today.year, today.month + 1),
+    'Hôm nay' => start.add(const Duration(days: 1)),
+    _ => start.add(const Duration(days: 7)),
+  };
+  final revenueByProperty = <String, int>{};
+
+  for (final booking in bookings) {
+    if (booking['paymentStatus']?.toString().toLowerCase() != 'paid') {
+      continue;
+    }
+
+    final date =
+        _readDate(booking['createdAt']) ?? _readDate(booking['checkIn']);
+    if (date == null || date.isBefore(start) || !date.isBefore(end)) continue;
+
+    final propertyId = booking['propertyId']?.toString() ?? '';
+    if (propertyId.isEmpty) continue;
+
+    revenueByProperty.update(
+      propertyId,
+      (revenue) => revenue + _asInt(booking['totalPrice']),
+      ifAbsent: () => _asInt(booking['totalPrice']),
+    );
+  }
+
+  final rankings = properties
+      .map((property) {
+        final propertyId = property['id']?.toString() ?? '';
+        return PropertyRevenueRank(
+          propertyId: propertyId,
+          propertyName: property['name']?.toString() ?? 'Cơ sở LuxeStay',
+          revenue: revenueByProperty[propertyId] ?? 0,
+        );
+      })
+      .where((rank) => rank.propertyId.isNotEmpty && rank.revenue > 0)
+      .toList();
+
+  rankings.sort((a, b) {
+    final revenueOrder = b.revenue.compareTo(a.revenue);
+    return revenueOrder != 0
+        ? revenueOrder
+        : a.propertyName.toLowerCase().compareTo(b.propertyName.toLowerCase());
+  });
+
+  return rankings.take(3).toList(growable: false);
+}
+
+class RevenueTrendPoint {
+  const RevenueTrendPoint({required this.label, required this.revenue});
+
+  final String label;
+  final int revenue;
+}
+
+List<RevenueTrendPoint> revenueTrendPoints({
+  required List<Map<String, dynamic>> bookings,
+  required DateTime today,
+  required String period,
+}) {
+  late final List<String> labels;
+  late final List<bool Function(DateTime)> matchesPeriod;
+
+  if (period == 'Hôm nay') {
+    labels = const ['00', '04', '08', '12', '16', '20'];
+    matchesPeriod = List.generate(
+      6,
+      (index) =>
+          (date) => DateUtils.isSameDay(date, today) && date.hour ~/ 4 == index,
+    );
+  } else if (period == 'Tuần này') {
+    final weekStart = DateUtils.dateOnly(today)
+        .subtract(Duration(days: today.weekday - 1));
+    labels = const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    matchesPeriod = List.generate(
+      7,
+      (index) =>
+          (date) =>
+              DateUtils.isSameDay(date, weekStart.add(Duration(days: index))),
+    );
+  } else {
+    final daysInMonth = DateTime(today.year, today.month + 1, 0).day;
+    final bucketCount = (daysInMonth + 6) ~/ 7;
+    labels = List.generate(bucketCount, (index) {
+      final firstDay = index * 7 + 1;
+      final lastDay = (firstDay + 6).clamp(1, daysInMonth);
+      return '$firstDay-$lastDay';
+    });
+    matchesPeriod = List.generate(
+      bucketCount,
+      (index) =>
+          (date) =>
+              date.year == today.year &&
+              date.month == today.month &&
+              (date.day - 1) ~/ 7 == index,
+    );
+  }
+
+  final totals = List<int>.filled(labels.length, 0);
+  for (final booking in bookings) {
+    if (booking['paymentStatus']?.toString().toLowerCase() != 'paid') {
+      continue;
+    }
+
+    final date =
+        _readDate(booking['createdAt']) ?? _readDate(booking['checkIn']);
+    if (date == null) continue;
+
+    for (var index = 0; index < matchesPeriod.length; index++) {
+      if (matchesPeriod[index](date)) {
+        totals[index] += _asInt(booking['totalPrice']);
+        break;
+      }
+    }
+  }
+
+  return List.generate(
+    labels.length,
+    (index) => RevenueTrendPoint(label: labels[index], revenue: totals[index]),
+    growable: false,
+  );
+}
+
 class AdminRoomMapScreen extends StatefulWidget {
   const AdminRoomMapScreen({super.key});
 
@@ -59,9 +206,9 @@ class _AdminRoomMapScreenState extends State<AdminRoomMapScreen> {
     return Scaffold(
       backgroundColor: _canvas,
       appBar: const AdminHeader(title: 'Sơ đồ phòng'),
-      bottomNavigationBar: AdminBottomNavigation(
-        selectedIndex: 1,
-        onSelected: (index) => _navigate(context, index, 1),
+      bottomNavigationBar: const AdminBottomNavigation(
+        selectedIndex: 2,
+        popToParentOnReselect: true,
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: firestore.watchProperties(),
@@ -185,10 +332,7 @@ class _AdminCheckinScreenState extends State<AdminCheckinScreen> {
     return Scaffold(
       backgroundColor: _canvas,
       appBar: const AdminHeader(title: 'Check-in & Cọc'),
-      bottomNavigationBar: AdminBottomNavigation(
-        selectedIndex: 3,
-        onSelected: (index) => _navigate(context, index, 3),
-      ),
+      bottomNavigationBar: const AdminBottomNavigation(selectedIndex: 1),
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: firestore.watchBookings(),
         builder: (context, snapshot) {
@@ -358,12 +502,7 @@ class _AdminCheckinScreenState extends State<AdminCheckinScreen> {
 }
 
 class AdminOperationsDashboard extends StatefulWidget {
-  const AdminOperationsDashboard({
-    super.key,
-    this.additionalContent = const [],
-  });
-
-  final List<Widget> additionalContent;
+  const AdminOperationsDashboard({super.key});
 
   @override
   State<AdminOperationsDashboard> createState() =>
@@ -371,946 +510,475 @@ class AdminOperationsDashboard extends StatefulWidget {
 }
 
 class _AdminOperationsDashboardState extends State<AdminOperationsDashboard> {
-  String _period = 'Hôm nay';
+  RevenuePeriod _period = RevenuePeriod.month;
+  late Future<RevenueReport> _reportFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _reportFuture = context.read<FirestoreService>().getRevenueReport(
+      period: _period,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final firestore = context.read<FirestoreService>();
-    final today = DateUtils.dateOnly(DateTime.now());
-
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: firestore.watchProperties(),
-      builder: (context, propertySnapshot) =>
-          StreamBuilder<List<Map<String, dynamic>>>(
-            stream: firestore.watchRooms(),
-            builder: (context, roomSnapshot) =>
-                StreamBuilder<List<Map<String, dynamic>>>(
-                  stream: firestore.watchBookings(),
-                  builder: (context, bookingSnapshot) {
-                    final properties =
-                        propertySnapshot.data ?? const <Map<String, dynamic>>[];
-                    final rooms =
-                        roomSnapshot.data ?? const <Map<String, dynamic>>[];
-                    final bookings =
-                        bookingSnapshot.data ?? const <Map<String, dynamic>>[];
-                    final property = properties.isEmpty
-                        ? const <String, dynamic>{}
-                        : properties.first;
-                    final arrivals = bookings
-                        .where(
-                          (booking) => _isSameDate(booking['checkIn'], today),
-                        )
-                        .toList();
-                    final departures = bookings
-                        .where(
-                          (booking) => _isSameDate(booking['checkOut'], today),
-                        )
-                        .length;
-                    final pending = bookings.where((booking) {
-                      final status = booking['status']
-                          ?.toString()
-                          .toLowerCase();
-                      return status == 'pending' || status == 'waiting';
-                    }).toList();
-                    final occupancyValues = properties
-                        .map((item) => item['occupancyRate'])
-                        .whereType<num>()
-                        .map((value) => value.toDouble())
-                        .toList();
-                    final occupancy = occupancyValues.isEmpty
-                        ? 0.0
-                        : occupancyValues.reduce((a, b) => a + b) /
-                              occupancyValues.length;
-                    final periodRevenue = bookings
-                        .where((booking) {
-                          if (booking['paymentStatus']
-                                  ?.toString()
-                                  .toLowerCase() !=
-                              'paid') {
-                            return false;
-                          }
-                          final date =
-                              _readDate(booking['createdAt']) ??
-                              _readDate(booking['checkIn']);
-                          return date != null &&
-                              _isInPeriod(date, today, _period);
-                        })
-                        .fold<int>(
-                          0,
-                          (total, booking) =>
-                              total + _asInt(booking['totalPrice']),
-                        );
-                    final weeklyArrivals = List<int>.generate(7, (index) {
-                      final date = today.add(Duration(days: index));
-                      return bookings
-                          .where(
-                            (booking) => _isSameDate(booking['checkIn'], date),
-                          )
-                          .length;
-                    });
-
-                    return Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 640),
-                        child: ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
-                          children: [
-                            _PropertyHero(property: property),
-                            const SizedBox(height: 10),
-                            _PeriodSelector(
-                              selected: _period,
-                              onChanged: (period) =>
-                                  setState(() => _period = period),
-                            ),
-                            const SizedBox(height: 12),
-                            if (pending.isNotEmpty) ...[
-                              _UrgentBookings(
-                                count: pending.length,
-                                bookings: pending.take(2).toList(),
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-                            _RevenuePanel(
-                              amount: periodRevenue,
-                              period: _period,
-                              unpaidCount: pending.length,
-                            ),
-                            const SizedBox(height: 14),
-                            const _DashboardHeading(
-                              title: 'Chỉ số vận hành ca',
-                            ),
-                            const SizedBox(height: 8),
-                            _OccupancyPanel(
-                              occupancy: occupancy,
-                              propertyCount: properties.length,
-                              roomCount: rooms.length,
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _ArrivalDepartureTile(
-                                    title: 'NHẬN PHÒNG',
-                                    count: arrivals.length,
-                                    icon: Icons.login_rounded,
-                                    color: const Color(0xFFDBEAFE),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: _ArrivalDepartureTile(
-                                    title: 'TRẢ PHÒNG',
-                                    count: departures,
-                                    icon: Icons.logout_rounded,
-                                    color: const Color(0xFFFFE7D6),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            _WeeklyArrivals(
-                              values: weeklyArrivals,
-                              today: today,
-                            ),
-                            if ((property['image']?.toString() ?? '')
-                                .isNotEmpty) ...[
-                              const SizedBox(height: 14),
-                              _PropertyImageBanner(
-                                image: property['image'].toString(),
-                                name:
-                                    property['name']?.toString() ??
-                                    'LuxeStay Resort',
-                                roomCount: rooms.length,
-                              ),
-                            ],
-                            const SizedBox(height: 16),
-                            const _DashboardHeading(title: 'Thao tác ca trực'),
-                            const SizedBox(height: 8),
-                            _QuickActions(
-                              onSelected: (index) => _openTab(context, index),
-                            ),
-                            ...widget.additionalContent,
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-          ),
-    );
-  }
-}
-
-bool _isInPeriod(DateTime date, DateTime today, String period) {
-  final day = DateUtils.dateOnly(date);
-  if (period == 'Hôm nay') return DateUtils.isSameDay(day, today);
-  if (period == 'Tuần này') {
-    final start = today.subtract(Duration(days: today.weekday - 1));
-    return !day.isBefore(start) &&
-        day.isBefore(start.add(const Duration(days: 7)));
-  }
-  return day.year == today.year && day.month == today.month;
-}
-
-bool _isSameDate(dynamic value, DateTime date) {
-  final parsed = _readDate(value);
-  return parsed != null && DateUtils.isSameDay(parsed, date);
-}
-
-void _openTab(BuildContext context, int index) {
-  final page = switch (index) {
-    1 => const AdminRoomMapScreen(),
-    2 => const AdminRoomsScreen(),
-    _ => const AdminCheckinScreen(),
-  };
-  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
-}
-
-class _PropertyHero extends StatelessWidget {
-  const _PropertyHero({required this.property});
-
-  final Map<String, dynamic> property;
-
-  @override
-  Widget build(BuildContext context) {
-    final name = property['name']?.toString() ?? 'Cơ sở LuxeStay';
-    final city =
-        property['city']?.toString() ??
-        property['location']?.toString() ??
-        'Quản lý vận hành';
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8EEFF),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  '✧ CƠ SỞ ĐANG VẬN HÀNH',
-                  style: TextStyle(
-                    color: Color(0xFF9A4B0B),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF70F1C5),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Text(
-                  '● 24/7 Hoạt động',
-                  style: TextStyle(
-                    color: Color(0xFF075D47),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 7),
-          Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: _ink,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            city,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: _muted, fontSize: 10),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _ShiftInfo(
-                  icon: Icons.wb_sunny_outlined,
-                  label: 'Ca làm việc hiện tại',
-                  value: 'Ca sáng · 06:00 – 14:00',
-                ),
-              ),
-              const SizedBox(width: 7),
-              const Expanded(
-                child: _ShiftInfo(
-                  icon: Icons.badge_outlined,
-                  label: 'Quản lý trực ca',
-                  value: 'Minh Tuấn',
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ShiftInfo extends StatelessWidget {
-  const _ShiftInfo({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(9),
-    ),
-    child: Row(
-      children: [
-        Icon(icon, color: const Color(0xFF9A4B0B), size: 15),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: _muted, fontSize: 8),
-              ),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _ink,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _PeriodSelector extends StatelessWidget {
-  const _PeriodSelector({required this.selected, required this.onChanged});
-
-  final String selected;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    const periods = ['Hôm nay', 'Tuần này', 'Tháng này'];
-    return Container(
-      height: 38,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: _blue,
-        borderRadius: BorderRadius.circular(11),
-      ),
-      child: Row(
-        children: periods.map((period) {
-          final active = period == selected;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => onChanged(period),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: active ? Colors.black : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  period,
-                  style: TextStyle(
-                    color: active ? Colors.white : _ink,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _UrgentBookings extends StatelessWidget {
-  const _UrgentBookings({required this.count, required this.bookings});
-
-  final int count;
-  final List<Map<String, dynamic>> bookings;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: const Color(0xFFFFDAD6),
-      borderRadius: BorderRadius.circular(13),
-    ),
-    child: Column(
-      children: [
-        Row(
-          children: [
-            const Icon(
-              Icons.warning_amber_rounded,
-              color: Color(0xFFB42318),
-              size: 16,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'CẦN XỬ LÝ KHẨN CẤP ($count)',
-                style: const TextStyle(
-                  color: Color(0xFF9B1C16),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            const Text(
-              'Chờ xác nhận',
-              style: TextStyle(color: Color(0xFF9B1C16), fontSize: 9),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ...bookings.map(
-          (booking) => Container(
-            margin: const EdgeInsets.only(top: 5),
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.event_note_outlined, color: _orange, size: 16),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: Text(
-                    '${booking['customerName'] ?? booking['userName'] ?? 'Khách mới'} · ${booking['propertyName'] ?? 'LuxeStay'}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: _ink,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _RevenuePanel extends StatelessWidget {
-  const _RevenuePanel({
-    required this.amount,
-    required this.period,
-    required this.unpaidCount,
-  });
-
-  final int amount;
-  final String period;
-  final int unpaidCount;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(15),
-    decoration: BoxDecoration(
-      color: const Color(0xFF131B2D),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFF070C17)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.circle, color: _orange, size: 8),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'DOANH THU ĐÃ THANH TOÁN · $period'.toUpperCase(),
-                style: const TextStyle(
-                  color: Color(0xFFA7B0C0),
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            const Icon(Icons.trending_up_rounded, color: _green, size: 15),
-          ],
-        ),
-        const SizedBox(height: 7),
-        Text(
-          '${NumberFormat('#,###', 'vi_VN').format(amount)} ₫',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 25,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        Text(
-          '$unpaidCount booking chờ xác nhận',
-          style: const TextStyle(color: Color(0xFFA7B0C0), fontSize: 9),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            _RevenueSource(
-              label: 'Đã thanh toán',
-              value: NumberFormat.compact(locale: 'vi').format(amount),
-            ),
-            const SizedBox(width: 7),
-            const _RevenueSource(label: 'Kênh', value: 'LuxeStay'),
-            const SizedBox(width: 7),
-            const _RevenueSource(label: 'Đối soát', value: 'Thủ công'),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
-class _RevenueSource extends StatelessWidget {
-  const _RevenueSource({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF293246),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Color(0xFFADB6C6), fontSize: 8),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _DashboardHeading extends StatelessWidget {
-  const _DashboardHeading({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Text(
-    title,
-    style: const TextStyle(
-      color: _ink,
-      fontSize: 15,
-      fontWeight: FontWeight.w800,
-    ),
-  );
-}
-
-class _OccupancyPanel extends StatelessWidget {
-  const _OccupancyPanel({
-    required this.occupancy,
-    required this.propertyCount,
-    required this.roomCount,
-  });
-
-  final double occupancy;
-  final int propertyCount;
-  final int roomCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = (occupancy / 100).clamp(0.0, 1.0);
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(13),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Tỷ lệ lấp đầy cơ sở',
-                  style: TextStyle(
-                    color: _ink,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  '${occupancy.toStringAsFixed(1)}%',
-                  style: const TextStyle(
-                    color: _ink,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                Text(
-                  '$propertyCount cơ sở · $roomCount hạng phòng',
-                  style: const TextStyle(color: _muted, fontSize: 9),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            width: 62,
-            height: 62,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CircularProgressIndicator(
-                  value: progress,
-                  strokeWidth: 6,
-                  color: _orange,
-                  backgroundColor: const Color(0xFFFFE4CE),
-                ),
-                Text(
-                  '${occupancy.round()}%',
-                  style: const TextStyle(
-                    color: _ink,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ArrivalDepartureTile extends StatelessWidget {
-  const _ArrivalDepartureTile({
-    required this.title,
-    required this.count,
-    required this.icon,
-    required this.color,
-  });
-
-  final String title;
-  final int count;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(11),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  color: _muted,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            Icon(icon, size: 15, color: _ink),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          '$count lượt',
-          style: const TextStyle(
-            color: _ink,
-            fontSize: 19,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _WeeklyArrivals extends StatelessWidget {
-  const _WeeklyArrivals({required this.values, required this.today});
-
-  final List<int> values;
-  final DateTime today;
-
-  @override
-  Widget build(BuildContext context) {
-    final maxValue = values.fold<int>(
-      0,
-      (current, value) => value > current ? value : current,
-    );
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(13),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Xu hướng khách đến 7 ngày',
-            style: TextStyle(
-              color: _ink,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 76,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(values.length, (index) {
-                final value = values[index];
-                final height = maxValue == 0 ? 8.0 : 10 + 48 * value / maxValue;
-                final date = today.add(Duration(days: index));
-                return Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        '$value',
-                        style: const TextStyle(color: _muted, fontSize: 8),
-                      ),
-                      const SizedBox(height: 3),
-                      Container(
-                        height: height,
-                        width: 22,
-                        decoration: BoxDecoration(
-                          color: index == 0 ? _orange : const Color(0xFFD9E5FF),
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(5),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        DateFormat('E', 'vi').format(date),
-                        style: const TextStyle(color: _muted, fontSize: 8),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PropertyImageBanner extends StatelessWidget {
-  const _PropertyImageBanner({
-    required this.image,
-    required this.name,
-    required this.roomCount,
-  });
-
-  final String image;
-  final String name;
-  final int roomCount;
-
-  @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(13),
-    child: SizedBox(
-      height: 116,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.network(
-            image,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Container(color: _ink),
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Color(0xCC111827)],
-              ),
-            ),
-          ),
-          Positioned(
-            left: 12,
-            right: 12,
-            bottom: 10,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Tình trạng cơ sở',
-                        style: TextStyle(color: Colors.white70, fontSize: 9),
-                      ),
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  '$roomCount hạng phòng',
-                  style: const TextStyle(color: Colors.white, fontSize: 9),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.onSelected});
-
-  final ValueChanged<int> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    const actions = [
-      (Icons.qr_code_scanner_rounded, 'Check-in & cọc', 3),
-      (Icons.grid_view_rounded, 'Sơ đồ phòng', 1),
-      (Icons.tune_rounded, 'Cấu hình phòng', 2),
-      (Icons.receipt_long_outlined, 'Đơn đặt phòng', 3),
-    ];
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: actions.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        mainAxisExtent: 54,
-      ),
-      itemBuilder: (context, index) {
-        final action = actions[index];
-        return Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(11),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(11),
-            onTap: () => onSelected(action.$3),
+    return FutureBuilder<RevenueReport>(
+      future: _reportFuture,
+      builder: (context, reportSnapshot) {
+        if (reportSnapshot.hasError) {
+          return Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Row(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    action.$1,
-                    color: index.isEven ? _orange : _ink,
-                    size: 19,
+                  Text(
+                    'Không thể tải báo cáo doanh thu: ${reportSnapshot.error}',
+                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      action.$2,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _ink,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
+                  TextButton(
+                    onPressed: () => setState(
+                      () => _reportFuture = firestore.getRevenueReport(
+                        period: _period,
                       ),
                     ),
+                    child: const Text('Thử lại'),
                   ),
                 ],
               ),
             ),
-          ),
+          );
+        }
+        if (!reportSnapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final report = reportSnapshot.data!;
+        final propertyReports = report.properties;
+        return StreamBuilder<List<Map<String, dynamic>>>(
+          stream: firestore.watchUsers(),
+          builder: (context, userSnapshot) {
+            if (userSnapshot.hasError) {
+              return Center(
+                child: Text('Không thể tải nhân sự: ${userSnapshot.error}'),
+              );
+            }
+            final users = userSnapshot.data ?? const <Map<String, dynamic>>[];
+            final staffCount = users
+                .where((user) => user['isStaff'] == true)
+                .length;
+            final ownerCount = users
+                .where((user) => user['role']?.toString() == 'OWNER')
+                .length;
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 640),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
+                  children: [
+                    _OverviewMetricGrid(
+                      metrics: [
+                        _OverviewMetric(
+                          title: 'Doanh thu tổng đã thu',
+                          value:
+                              '${NumberFormat.compact(locale: 'vi_VN').format(report.totalRevenue)} ₫',
+                          icon: Icons.payments_outlined,
+                        ),
+                        _OverviewMetric(
+                          title: 'Đơn đã thanh toán',
+                          value: '${report.paidBookingCount}',
+                          icon: Icons.verified_outlined,
+                        ),
+                        _OverviewMetric(
+                          title: 'Khách sạn',
+                          value: '${propertyReports.length}',
+                          icon: Icons.apartment_outlined,
+                        ),
+                        _OverviewMetric(
+                          title: 'Chủ khách sạn',
+                          value: '$ownerCount',
+                          icon: Icons.business_center_outlined,
+                        ),
+                        _OverviewMetric(
+                          title: 'Nhân sự được phân công',
+                          value: '$staffCount',
+                          icon: Icons.groups_outlined,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    RevenuePeriodFilter(
+                      value: _period,
+                      onChanged: (period) => setState(() {
+                        _period = period;
+                        _reportFuture = firestore.getRevenueReport(
+                          period: _period,
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    RevenueTrendChart(report: report),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: AdminSectionTitle(
+                            title: 'Doanh thu theo khách sạn',
+                            subtitle: 'Chỉ tổng hợp, không hiển thị thông tin đơn hàng',
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Làm mới doanh thu',
+                          onPressed: () => setState(
+                            () => _reportFuture = firestore.getRevenueReport(
+                              period: _period,
+                            ),
+                          ),
+                          icon: const Icon(Icons.refresh_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    if (propertyReports.isEmpty)
+                      const AdminEmptyState(
+                        icon: Icons.bar_chart_rounded,
+                        title: 'Chưa có dữ liệu doanh thu',
+                      )
+                    else
+                      _OverviewRevenueChart(
+                        reports: propertyReports,
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
   }
 }
 
-void _navigate(BuildContext context, int index, int selectedIndex) {
-  if (index == selectedIndex) return;
-  if (index == 0) {
-    Navigator.of(context).popUntil((route) => route.isFirst);
-    return;
-  }
+class _OverviewRevenueChart extends StatelessWidget {
+  const _OverviewRevenueChart({required this.reports});
 
-  final page = switch (index) {
-    1 => const AdminRoomMapScreen(),
-    2 => const AdminRoomsScreen(),
-    _ => const AdminCheckinScreen(),
-  };
-  Navigator.of(context)
-      .pushReplacement(MaterialPageRoute<void>(builder: (_) => page));
+  final List<RevenuePropertyReport> reports;
+
+  @override
+  Widget build(BuildContext context) {
+    final rankedReports = reports
+        .where((report) => report.revenue > 0)
+        .take(6)
+        .toList(growable: false);
+    final maximumRevenue = rankedReports.fold<int>(
+      0,
+      (maximum, report) => maximum > report.revenue ? maximum : report.revenue,
+    );
+    final totalRevenue = reports.fold<int>(
+      0,
+      (total, report) => total + report.revenue,
+    );
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: _ink.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: rankedReports.isEmpty
+          ? const _RevenueChartEmptyState()
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: _orange,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Doanh thu đã thanh toán',
+                      style: TextStyle(
+                        color: _muted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Top ${rankedReports.length}',
+                      style: const TextStyle(
+                        color: _orange,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                ...rankedReports.asMap().entries.map(
+                  (entry) => Padding(
+                    padding: EdgeInsets.only(
+                      bottom: entry.key == rankedReports.length - 1 ? 0 : 14,
+                    ),
+                    child: _RevenueChartBar(
+                      rank: entry.key + 1,
+                      propertyName: entry.value.propertyName,
+                      revenue: entry.value.revenue,
+                      percentage: entry.value.revenue / maximumRevenue,
+                    ),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(height: 1, color: Color(0xFFF0F1F5)),
+                ),
+                Row(
+                  children: [
+                    Text(
+                      '${reports.length} khách sạn',
+                      style: const TextStyle(color: _muted, fontSize: 10),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Tổng ${NumberFormat.compact(locale: 'vi_VN').format(totalRevenue)} ₫',
+                      style: const TextStyle(
+                        color: _ink,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _RevenueChartBar extends StatelessWidget {
+  const _RevenueChartBar({
+    required this.rank,
+    required this.propertyName,
+    required this.revenue,
+    required this.percentage,
+  });
+
+  final int rank;
+  final String propertyName;
+  final int revenue;
+  final double percentage;
+
+  @override
+  Widget build(BuildContext context) {
+    final isLeader = rank == 1;
+    final barColor = isLeader ? _orange : const Color(0xFF94A8CC);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 23,
+          height: 23,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isLeader ? const Color(0xFFFFE7D3) : const Color(0xFFF1F4FA),
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            '$rank',
+            style: TextStyle(
+              color: isLeader ? _orange : _muted,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      propertyName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ink,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${NumberFormat.compact(locale: 'vi_VN').format(revenue)} ₫',
+                    style: const TextStyle(
+                      color: _ink,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 7),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: SizedBox(
+                  height: 8,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      const ColoredBox(color: Color(0xFFF0F3F8)),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: percentage.clamp(0.0, 1.0).toDouble(),
+                          child: ColoredBox(color: barColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RevenueChartEmptyState extends StatelessWidget {
+  const _RevenueChartEmptyState();
+
+  @override
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.symmetric(vertical: 18),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.payments_outlined, color: _muted, size: 18),
+        SizedBox(width: 8),
+        Text(
+          'Chưa có đơn đã thanh toán để lập biểu đồ.',
+          style: TextStyle(color: _muted, fontSize: 11),
+        ),
+      ],
+    ),
+  );
+}
+
+class _OverviewMetric {
+  const _OverviewMetric({
+    required this.title,
+    required this.value,
+    required this.icon,
+  });
+
+  final String title;
+  final String value;
+  final IconData icon;
+}
+
+class _OverviewMetricGrid extends StatelessWidget {
+  const _OverviewMetricGrid({required this.metrics});
+
+  final List<_OverviewMetric> metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <Widget>[];
+    for (var index = 0; index < metrics.length; index += 2) {
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: 9));
+      rows.add(
+        Row(
+          children: [
+            Expanded(child: _OverviewMetricCard(metric: metrics[index])),
+            const SizedBox(width: 9),
+            Expanded(
+              child: index + 1 < metrics.length
+                  ? _OverviewMetricCard(metric: metrics[index + 1])
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(children: rows);
+  }
+}
+
+class _OverviewMetricCard extends StatelessWidget {
+  const _OverviewMetricCard({required this.metric});
+
+  final _OverviewMetric metric;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 105,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(13),
+      border: Border.all(color: const Color(0xFFE5E7EB)),
+      boxShadow: [
+        BoxShadow(
+          color: _ink.withValues(alpha: 0.025),
+          blurRadius: 8,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Container(
+          width: 29,
+          height: 29,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF1E6),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(metric.icon, color: _orange, size: 16),
+        ),
+        Text(
+          metric.value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: _ink,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        Text(
+          metric.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: _muted, fontSize: 10),
+        ),
+      ],
+    ),
+  );
 }
 
 class _PropertyPicker extends StatelessWidget {

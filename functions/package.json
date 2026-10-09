@@ -7,7 +7,8 @@
     "node": "22"
   },
   "scripts": {
-    "lint": "node --check index.js"
+    "lint": "node --check index.js && node --check seed-owner-demo-data.js",
+    "seed:owner-demo": "node seed-owner-demo-data.js"
   },
   "dependencies": {
     "firebase-admin": "^13.4.0",

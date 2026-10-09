@@ -1,0 +1,229 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userData().role == 'ADMIN';
+    }
+
+    function isOwnerOf(propertyId) {
+      return signedIn()
+        && userData().role == 'OWNER'
+        && userData().propertyId == propertyId
+        && get(/databases/$(database)/documents/properties/$(propertyId)).data.ownerId
+          == request.auth.uid;
+    }
+
+    function validRegistrationProfile(userId) {
+      return request.resource.data.uid == userId
+        && request.resource.data.role in ['CUSTOMER', 'OWNER']
+        && request.resource.data.keys().hasOnly([
+          'uid', 'name', 'displayName', 'email', 'phone', 'avatar',
+          'role', 'createdAt', 'updatedAt', 'propertyId',
+          'ownerOnboardingComplete'
+        ])
+        && (
+          (
+            request.resource.data.role == 'CUSTOMER'
+            && !('propertyId' in request.resource.data)
+          )
+          || (
+            request.resource.data.role == 'OWNER'
+            && !('propertyId' in request.resource.data)
+            && request.resource.data.ownerOnboardingComplete == false
+          )
+        );
+    }
+
+    function validOwnerOnboardingUpdate(userId) {
+      return signedIn()
+        && request.auth.uid == userId
+        && resource.data.role == 'OWNER'
+        && !('propertyId' in resource.data)
+        && request.resource.data.uid == userId
+        && request.resource.data.role == 'OWNER'
+        && request.resource.data.propertyId is string
+        && request.resource.data.ownerOnboardingComplete == true
+        && request.resource.data.ownerAgreementAccepted == true
+        && request.resource.data.ownerAgreementVersion is string
+        && request.resource.data.ownerAgreementSignedName is string
+        && request.resource.data.ownerAgreementText is string
+        && request.resource.data.ownerAgreementAcceptedAt is timestamp
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'propertyId', 'ownerOnboardingComplete', 'ownerAgreementAccepted',
+          'ownerAgreementVersion', 'ownerAgreementSignedName',
+          'ownerAgreementText', 'ownerAgreementAcceptedAt', 'updatedAt'
+        ])
+        && getAfter(
+          /databases/$(database)/documents/properties/$(request.resource.data.propertyId)
+        ).data.ownerId == userId;
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (
+        isAdmin()
+        || request.auth.uid == userId
+        || (
+          resource.data.isStaff == true
+          && resource.data.propertyId == userData().propertyId
+          && userData().role == 'OWNER'
+        )
+      );
+
+      allow create: if (
+          signedIn()
+          && request.auth.uid == userId
+          && validRegistrationProfile(userId)
+        )
+        || (isAdmin() && request.resource.data.isDemo == true);
+
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['displayName', 'name', 'phone', 'avatar', 'updatedAt'])
+        )
+        || validOwnerOnboardingUpdate(userId);
+
+      allow delete: if isAdmin();
+
+      match /favorites/{propertyId} {
+        allow read: if signedIn() && (
+          request.auth.uid == userId || isAdmin()
+        );
+        allow create, update: if (
+            signedIn() && request.auth.uid == userId
+          )
+          || (
+            isAdmin()
+            && request.resource.data.isDemo == true
+          );
+        allow delete: if signedIn() && request.auth.uid == userId;
+      }
+    }
+
+    match /properties/{propertyId} {
+      allow read: if signedIn();
+
+      allow create: if isAdmin()
+        || (
+          signedIn()
+          && request.resource.data.ownerId == request.auth.uid
+          && getAfter(
+            /databases/$(database)/documents/users/$(request.auth.uid)
+          ).data.role == 'OWNER'
+          && getAfter(
+            /databases/$(database)/documents/users/$(request.auth.uid)
+          ).data.propertyId == propertyId
+          && getAfter(
+            /databases/$(database)/documents/users/$(request.auth.uid)
+          ).data.ownerOnboardingComplete == true
+        );
+      allow update, delete: if isAdmin();
+
+      match /rooms/{roomId} {
+        allow read: if signedIn();
+        allow create, update: if isOwnerOf(propertyId)
+          || (isAdmin() && request.resource.data.isDemo == true);
+        allow delete: if isOwnerOf(propertyId)
+          || (isAdmin() && resource.data.isDemo == true);
+      }
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid
+        || resource.data.userId == request.auth.token.email
+        || (
+          request.auth.token.email == 'customer@luxestay.vn'
+          && resource.data.userId == 'demo-customer'
+        )
+        || isAdmin()
+        || isOwnerOf(resource.data.propertyId)
+      );
+
+      allow create: if (
+          signedIn()
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.propertyId is string
+          && request.resource.data.status == 'pending'
+          && exists(
+            /databases/$(database)/documents/properties/$(request.resource.data.propertyId)
+          )
+        )
+        || (isAdmin() && request.resource.data.isDemo == true);
+
+      allow update: if signedIn() && (
+        (
+          isAdmin()
+          && resource.data.isDemo == true
+          && request.resource.data.isDemo == true
+        )
+        || (
+          resource.data.userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['paymentStatus', 'updatedAt'])
+        )
+        || (
+          isOwnerOf(resource.data.propertyId)
+          && request.resource.data.propertyId == resource.data.propertyId
+          && (
+            (
+              request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['status', 'updatedAt'])
+              && (
+                (resource.data.status in ['pending', 'waiting']
+                  && request.resource.data.status == 'confirmed')
+                || (resource.data.status == 'confirmed'
+                  && request.resource.data.status == 'checked_in')
+                || (resource.data.status == 'checked_in'
+                  && request.resource.data.status == 'checked_out')
+              )
+            )
+            || (
+              request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['paymentStatus', 'updatedAt'])
+              && request.resource.data.paymentStatus == 'paid'
+            )
+          )
+        )
+      );
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid
+        && resource.data.status in ['pending', 'waiting']
+        || (isAdmin() && resource.data.isDemo == true);
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if signedIn();
+      allow create: if (
+          signedIn()
+          && request.resource.data.userId == request.auth.uid
+        )
+        || (isAdmin() && request.resource.data.isDemo == true);
+      allow update: if (
+          signedIn()
+          && resource.data.userId == request.auth.uid
+        )
+        || (
+          isAdmin()
+          && resource.data.isDemo == true
+          && request.resource.data.isDemo == true
+        );
+      allow delete: if (
+          signedIn()
+          && resource.data.userId == request.auth.uid
+        )
+        || (isAdmin() && resource.data.isDemo == true);
+    }
+  }
+}

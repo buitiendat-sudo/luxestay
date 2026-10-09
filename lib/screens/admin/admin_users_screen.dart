@@ -1,11 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/firestore_service.dart';
 import '../../widgets/admin_chrome.dart';
-import 'admin_operations_screen.dart';
-import 'admin_rooms_screen.dart';
 
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
@@ -15,47 +13,16 @@ class AdminUsersScreen extends StatefulWidget {
 }
 
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
-  String _filter = 'CUSTOMER';
-
   @override
   Widget build(BuildContext context) {
     final firestore = context.read<FirestoreService>();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7FB),
-      appBar: const AdminHeader(title: 'Người dùng & Phân quyền'),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Tạo tài khoản Firebase Auth cần triển khai qua backend/Admin SDK để không đăng xuất Admin hiện tại.',
-              ),
-            ),
-          );
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Thêm tài khoản'),
-      ),
-      bottomNavigationBar: AdminBottomNavigation(
-        selectedIndex: 0,
-        onSelected: (index) {
-          if (index == 0) {
-            Navigator.of(context).popUntil((route) => route.isFirst);
-            return;
-          }
-
-          final page = switch (index) {
-            1 => const AdminRoomMapScreen(),
-            2 => const AdminRoomsScreen(),
-            _ => const AdminCheckinScreen(),
-          };
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => page),
-          );
-        },
+      appBar: const AdminHeader(title: 'Quản lý nhân sự'),
+      bottomNavigationBar: const AdminBottomNavigation(
+        selectedIndex: 2,
+        popToParentOnReselect: true,
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: firestore.watchUsers(),
@@ -68,19 +35,20 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
           final customers = users.where((user) => _role(user) == 'CUSTOMER');
 
-          final admins = users.where((user) => _role(user) == 'ADMIN');
-
           final owners = users.where((user) => _role(user) == 'OWNER');
+          final staffCount = users
+              .where((user) => user['isStaff'] == true)
+              .length;
 
           final filtered = users
-              .where((user) => _role(user) == _filter)
-              .toList();
+              .where((user) => _role(user) == 'CUSTOMER')
+              .toList(growable: false);
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 90),
             children: [
               const Text(
-                'Tổng quan tài khoản',
+                'Nhân sự và tài khoản',
                 style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
               ),
 
@@ -121,38 +89,20 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     SizedBox(
                       width: 145,
                       child: AdminKpiCard(
-                        title: 'Ban quản trị',
-                        value: '${admins.length}',
-                        icon: Icons.admin_panel_settings_outlined,
+                        title: 'Nhân sự',
+                        value: '$staffCount',
+                        icon: Icons.groups_outlined,
                       ),
                     ),
+                    const SizedBox(width: 8),
                   ],
                 ),
               ),
 
               const SizedBox(height: 18),
 
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'CUSTOMER', label: Text('Khách hàng')),
-                    ButtonSegment(value: 'OWNER', label: Text('Chủ khách sạn')),
-                    ButtonSegment(value: 'ADMIN', label: Text('Quản trị')),
-                  ],
-                  selected: {_filter},
-                  onSelectionChanged: (selection) {
-                    setState(() {
-                      _filter = selection.first;
-                    });
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
               Text(
-                'Danh sách (${filtered.length})',
+                'Tài khoản khách hàng có thể phân công (${filtered.length})',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
@@ -187,19 +137,6 @@ class _UserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final id = user['id'].toString();
-
-    final role = user['role']?.toString().toUpperCase() ?? 'CUSTOMER';
-
-    final spending = (user['totalSpending'] as num?)?.toInt() ?? 0;
-
-    final tier =
-        user['membershipTier']?.toString() ?? _tierFromSpending(spending);
-
-    final twoFactor = user['twoFactorEnabled'] == true;
-
-    final active = user['isActive'] != false;
-
     return Container(
       margin: const EdgeInsets.only(bottom: 11),
       padding: const EdgeInsets.all(13),
@@ -249,122 +186,125 @@ class _UserCard extends StatelessWidget {
                 ),
               ),
 
-              _TierBadge(tier: tier),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          Row(
-            children: [
-              Expanded(
-                child: _UserInfo(
-                  label: 'Tổng chi tiêu',
-                  value: '${NumberFormat('#,###', 'vi_VN').format(spending)}đ',
-                ),
-              ),
-              Expanded(
-                child: _UserInfo(
-                  label: '2FA',
-                  value: twoFactor ? 'Đã bật' : 'Chưa bật',
-                ),
-              ),
-              Expanded(
-                child: _UserInfo(label: 'Phân quyền', value: role),
-              ),
             ],
           ),
 
           const SizedBox(height: 10),
 
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () {
-                    _changeRole(context, id, role);
-                  },
-                  child: const Text('Phân quyền'),
-                ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: () => _assignStaff(context, user),
+              icon: const Icon(Icons.badge_outlined),
+              label: Text(
+                user['isStaff'] == true ? 'Sửa phân công' : 'Gán nhân sự',
               ),
-
-              const SizedBox(width: 7),
-
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () {
-                    context.read<FirestoreService>().updateUserStatus(
-                      userId: id,
-                      active: !active,
-                    );
-                  },
-                  child: Text(active ? 'Tạm khóa' : 'Mở khóa'),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  static void _changeRole(
-    BuildContext context,
-    String userId,
-    String currentRole,
-  ) {
-    showModalBottomSheet<void>(
+  static void _assignStaff(BuildContext context, Map<String, dynamic> user) {
+    final userId = user['id']?.toString() ?? '';
+    var selectedPropertyId = user['propertyId']?.toString() ?? '';
+    var isStaff = user['isStaff'] == true;
+    showDialog<void>(
       context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Padding(
-                padding: EdgeInsets.all(14),
-                child: Text(
-                  'Thay đổi phân quyền',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-              ),
-              ...['CUSTOMER', 'OWNER', 'ADMIN'].map(
-                (role) => ListTile(
-                  leading: Icon(
-                    currentRole == role
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_off,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Phân công nhân sự'),
+          content: StreamBuilder<List<Map<String, dynamic>>>(
+            stream: context.read<FirestoreService>().watchProperties(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Text('Không thể tải khách sạn: ${snapshot.error}');
+              }
+              if (!snapshot.hasData) {
+                return const SizedBox(
+                  height: 70,
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final properties = snapshot.data!;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Đánh dấu là nhân sự khách sạn'),
+                    value: isStaff,
+                    onChanged: (value) => setDialogState(() => isStaff = value),
                   ),
-                  title: Text(role),
-                  onTap: () async {
-                    await context.read<FirestoreService>().updateUserRole(
-                      userId: userId,
-                      role: role,
-                    );
-
-                    if (sheetContext.mounted) {
-                      Navigator.pop(sheetContext);
-                    }
-                  },
-                ),
-              ),
-            ],
+                  if (isStaff)
+                    DropdownButtonFormField<String>(
+                      initialValue:
+                          properties.any(
+                            (property) => property['id'] == selectedPropertyId,
+                          )
+                          ? selectedPropertyId
+                          : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Khách sạn được phân công',
+                      ),
+                      items: properties
+                          .map(
+                            (property) => DropdownMenuItem<String>(
+                              value: property['id'].toString(),
+                              child: Text(
+                                property['name']?.toString() ?? 'Khách sạn',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setDialogState(() => selectedPropertyId = value);
+                        }
+                      },
+                    ),
+                ],
+              );
+            },
           ),
-        );
-      },
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (userId.isEmpty || (isStaff && selectedPropertyId.isEmpty)) {
+                  return;
+                }
+                try {
+                  await context.read<FirestoreService>().setUser(
+                    userId,
+                    isStaff
+                        ? {'isStaff': true, 'propertyId': selectedPropertyId}
+                        : {'isStaff': false, 'propertyId': FieldValue.delete()},
+                  );
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                } on FirebaseException catch (error) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Không thể lưu phân công: ${error.message}',
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Lưu'),
+            ),
+          ],
+        ),
+      ),
     );
-  }
-
-  static String _tierFromSpending(int spending) {
-    if (spending >= 100000000) {
-      return 'BLACK';
-    }
-
-    if (spending >= 50000000) {
-      return 'DIAMOND';
-    }
-
-    return 'SILVER';
   }
 
   static String _initials(String name) {
@@ -377,69 +317,5 @@ class _UserCard extends StatelessWidget {
     }
 
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-  }
-}
-
-class _UserInfo extends StatelessWidget {
-  const _UserInfo({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 8),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
-        ),
-      ],
-    );
-  }
-}
-
-class _TierBadge extends StatelessWidget {
-  const _TierBadge({required this.tier});
-
-  final String tier;
-
-  @override
-  Widget build(BuildContext context) {
-    final normalized = tier.toUpperCase();
-
-    final label = switch (normalized) {
-      'BLACK' => 'Black',
-      'DIAMOND' => 'Diamond',
-      _ => 'Bạc',
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-      decoration: BoxDecoration(
-        color: normalized == 'BLACK'
-            ? const Color(0xFF111827)
-            : normalized == 'DIAMOND'
-            ? const Color(0xFFDBEAFE)
-            : const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: normalized == 'BLACK' ? Colors.white : const Color(0xFF334155),
-          fontSize: 8,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
   }
 }

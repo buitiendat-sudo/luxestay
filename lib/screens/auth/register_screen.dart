@@ -24,6 +24,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  String _accountRole = 'CUSTOMER';
 
   @override
   void dispose() {
@@ -45,24 +46,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
       name: _nameController.text.trim(),
       email: _emailController.text.trim(),
       password: _passwordController.text,
+      role: _accountRole,
     );
 
     if (!mounted) return;
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đăng ký tài khoản thành công!'),
-        ),
+        const SnackBar(content: Text('Đăng ký tài khoản thành công!')),
       );
 
       Navigator.pop(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            authProvider.errorMessage ?? 'Đăng ký thất bại.',
-          ),
+          content: Text(authProvider.errorMessage ?? 'Đăng ký thất bại.'),
         ),
       );
     }
@@ -76,26 +74,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
         backgroundColor: _background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: _navy,
-          ),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _navy),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              24,
-              10,
-              24,
-              32,
-            ),
+            padding: const EdgeInsets.fromLTRB(24, 10, 24, 32),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 430,
-              ),
+              constraints: const BoxConstraints(maxWidth: 430),
               child: Consumer<AuthProvider>(
                 builder: (context, authProvider, child) {
                   return Form(
@@ -154,8 +142,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           icon: Icons.person_outline_rounded,
                           textCapitalization: TextCapitalization.words,
                           validator: (value) {
-                            if (value == null ||
-                                value.trim().isEmpty) {
+                            if (value == null || value.trim().isEmpty) {
                               return 'Vui lòng nhập họ và tên';
                             }
 
@@ -177,17 +164,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           icon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                           validator: (value) {
-                            if (value == null ||
-                                value.trim().isEmpty) {
+                            if (value == null || value.trim().isEmpty) {
                               return 'Vui lòng nhập email';
                             }
 
-                            if (!value.contains('@') ||
-                                !value.contains('.')) {
+                            if (!value.contains('@') || !value.contains('.')) {
                               return 'Email không hợp lệ';
                             }
 
                             return null;
+                          },
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        const Text(
+                          'Loại tài khoản',
+                          style: TextStyle(
+                            color: _navy,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(
+                              value: 'CUSTOMER',
+                              icon: Icon(Icons.person_outline),
+                              label: Text('Người dùng'),
+                            ),
+                            ButtonSegment(
+                              value: 'OWNER',
+                              icon: Icon(Icons.apartment_outlined),
+                              label: Text('Chủ khách sạn'),
+                            ),
+                          ],
+                          selected: {_accountRole},
+                          onSelectionChanged: (selection) {
+                            setState(() => _accountRole = selection.first);
                           },
                         ),
 
@@ -203,8 +217,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           suffix: IconButton(
                             onPressed: () {
                               setState(() {
-                                _obscurePassword =
-                                    !_obscurePassword;
+                                _obscurePassword = !_obscurePassword;
                               });
                             },
                             icon: Icon(
@@ -255,8 +268,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               return 'Vui lòng xác nhận mật khẩu';
                             }
 
-                            if (value !=
-                                _passwordController.text) {
+                            if (value != _passwordController.text) {
                               return 'Mật khẩu xác nhận không khớp';
                             }
 
@@ -270,27 +282,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         SizedBox(
                           height: 56,
                           child: ElevatedButton(
-                            onPressed:
-                                authProvider.isLoading
-                                    ? null
-                                    : _register,
+                            onPressed: authProvider.isLoading
+                                ? null
+                                : _register,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _navy,
                               foregroundColor: Colors.white,
-                              disabledBackgroundColor:
-                                  _navy.withValues(alpha: 0.6),
+                              disabledBackgroundColor: _navy.withValues(
+                                alpha: 0.6,
+                              ),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(16),
                               ),
                             ),
                             child: authProvider.isLoading
                                 ? const SizedBox(
                                     width: 22,
                                     height: 22,
-                                    child:
-                                        CircularProgressIndicator(
+                                    child: CircularProgressIndicator(
                                       strokeWidth: 2.5,
                                       color: Colors.white,
                                     ),
@@ -309,14 +319,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                         // Login
                         Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const Text(
                               'Đã có tài khoản?',
-                              style: TextStyle(
-                                color: Color(0xFF6B7280),
-                              ),
+                              style: TextStyle(color: Color(0xFF6B7280)),
                             ),
                             TextButton(
                               onPressed: () {
@@ -351,8 +358,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required IconData icon,
     required String? Function(String?) validator,
     TextInputType? keyboardType,
-    TextCapitalization textCapitalization =
-        TextCapitalization.none,
+    TextCapitalization textCapitalization = TextCapitalization.none,
     bool obscureText = false,
     Widget? suffix,
   }) {
@@ -365,10 +371,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(
-          icon,
-          color: _navy,
-        ),
+        prefixIcon: Icon(icon, color: _navy),
         suffixIcon: suffix,
         filled: true,
         fillColor: Colors.white,
@@ -378,29 +381,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: Color(0xFFE4E0D8),
-          ),
+          borderSide: const BorderSide(color: Color(0xFFE4E0D8)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: _navy,
-            width: 1.5,
-          ),
+          borderSide: const BorderSide(color: _navy, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: Colors.redAccent,
-          ),
+          borderSide: const BorderSide(color: Colors.redAccent),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: Colors.redAccent,
-            width: 1.5,
-          ),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
         ),
       ),
     );

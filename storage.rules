@@ -1,0 +1,42 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwnerOf(propertyId) {
+      let user = firestore.get(
+        /databases/(default)/documents/users/$(request.auth.uid)
+      ).data;
+      let property = firestore.get(
+        /databases/(default)/documents/properties/$(propertyId)
+      ).data;
+      return signedIn()
+        && user.role == 'OWNER'
+        && user.propertyId == propertyId
+        && property.ownerId == request.auth.uid;
+    }
+
+    match /properties/{propertyId}/rooms/{roomId}/{imagePath=**} {
+      allow read: if signedIn();
+      allow write: if isOwnerOf(propertyId)
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /users/{ownerId}/onboarding/{imagePath=**} {
+      allow read: if signedIn() && request.auth.uid == ownerId;
+      allow write: if signedIn()
+        && request.auth.uid == ownerId
+        && firestore.get(
+          /databases/(default)/documents/users/$(ownerId)
+        ).data.role == 'OWNER'
+        && firestore.get(
+          /databases/(default)/documents/users/$(ownerId)
+        ).data.ownerOnboardingComplete == false
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

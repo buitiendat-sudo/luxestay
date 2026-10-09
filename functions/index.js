@@ -1,11 +1,99 @@
 'use strict';
 
+const { initializeApp } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
 
 const geminiApiKey = defineSecret('GEMINI_API_KEY');
 const modelName = 'gemini-3.1-flash-lite';
+
+initializeApp();
+const db = getFirestore();
+
+exports.getRevenueReport = onCall(
+  {
+    region: 'asia-southeast1',
+    enforceAppCheck: process.env.FUNCTIONS_EMULATOR !== 'true',
+    maxInstances: 10,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Bạn cần đăng nhập.');
+    }
+
+    const userSnapshot = await db.collection('users').doc(request.auth.uid).get();
+    const user = userSnapshot.data();
+    const role = user?.role?.toString().toUpperCase();
+    if (role !== 'ADMIN' && role !== 'OWNER') {
+      throw new HttpsError('permission-denied', 'Bạn không có quyền xem doanh thu.');
+    }
+
+    let propertyId;
+    if (role === 'OWNER') {
+      propertyId = user.propertyId?.toString();
+      if (!propertyId) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Tài khoản chủ khách sạn chưa được liên kết với cơ sở.',
+        );
+      }
+      const property = await db.collection('properties').doc(propertyId).get();
+      if (!property.exists || property.data()?.ownerId !== request.auth.uid) {
+        throw new HttpsError(
+          'permission-denied',
+          'Liên kết khách sạn không hợp lệ.',
+        );
+      }
+    }
+
+    const [bookingSnapshot, propertySnapshot] = await Promise.all([
+      propertyId
+        ? db.collection('bookings').where('propertyId', '==', propertyId).get()
+        : db.collection('bookings').get(),
+      role === 'ADMIN'
+        ? db.collection('properties').get()
+        : db.collection('properties').doc(propertyId).get(),
+    ]);
+    const properties = new Map();
+    if (role === 'ADMIN') {
+      for (const doc of propertySnapshot.docs) {
+        properties.set(doc.id, doc.data()?.name ?? 'Khách sạn');
+      }
+    } else {
+      properties.set(propertyId, propertySnapshot.data()?.name ?? 'Khách sạn');
+    }
+
+    const totals = new Map();
+    for (const booking of bookingSnapshot.docs) {
+      const data = booking.data();
+      const id = data.propertyId?.toString();
+      if (!id || (propertyId && id !== propertyId)) continue;
+      if (!totals.has(id)) totals.set(id, { revenue: 0, paidBookingCount: 0 });
+      if (data.paymentStatus?.toString().toLowerCase() === 'paid') {
+        const summary = totals.get(id);
+        summary.revenue += Number(data.totalPrice) || 0;
+        summary.paidBookingCount += 1;
+      }
+    }
+
+    const propertyReports = [...properties].map(([id, name]) => ({
+      propertyId: id,
+      propertyName: name,
+      revenue: totals.get(id)?.revenue ?? 0,
+      paidBookingCount: totals.get(id)?.paidBookingCount ?? 0,
+    })).sort((a, b) => b.revenue - a.revenue);
+    return {
+      totalRevenue: propertyReports.reduce((sum, item) => sum + item.revenue, 0),
+      paidBookingCount: propertyReports.reduce(
+        (sum, item) => sum + item.paidBookingCount,
+        0,
+      ),
+      properties: propertyReports,
+    };
+  },
+);
 
 const stringSchema = { type: 'STRING' };
 const integerSchema = { type: 'INTEGER' };

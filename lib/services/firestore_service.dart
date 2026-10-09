@@ -54,6 +54,37 @@ class FirestoreService {
         .map(_documentsToMaps);
   }
 
+  Future<void> submitPropertyReview({
+    required String userId,
+    required String userName,
+    required String propertyId,
+    required String propertyName,
+    required int rating,
+    required String comment,
+    required bool recommends,
+    required String recommendReason,
+    required List<String> highlights,
+  }) {
+    if (rating < 1 || rating > 5) {
+      throw ArgumentError.value(rating, 'rating', 'must be between 1 and 5');
+    }
+
+    final reviewId = '${propertyId}_$userId';
+    return reviews.doc(reviewId).set({
+      'userId': userId,
+      'userName': userName.trim().isEmpty ? 'Khách hàng' : userName.trim(),
+      'propertyId': propertyId,
+      'propertyName': propertyName,
+      'rating': rating,
+      'comment': comment.trim(),
+      'recommends': recommends,
+      'recommendReason': recommendReason.trim(),
+      'highlights': highlights,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Future<String> addProperty(Map<String, dynamic> data) async {
     final document = await properties.add(_withCreatedTimestamp(data));
 
@@ -94,6 +125,20 @@ class FirestoreService {
 
   CollectionReference<Map<String, dynamic>> propertyRooms(String propertyId) {
     return properties.doc(propertyId).collection('rooms');
+  }
+
+  String newPropertyRoomId(String propertyId) {
+    return propertyRooms(propertyId).doc().id;
+  }
+
+  Future<void> addPropertyRoom({
+    required String propertyId,
+    required String roomId,
+    required Map<String, dynamic> data,
+  }) {
+    return propertyRooms(propertyId)
+        .doc(roomId)
+        .set(_withCreatedTimestamp(data));
   }
 
   Stream<List<Room>> getRooms(String propertyId) {
@@ -196,13 +241,6 @@ class FirestoreService {
     );
   }
 
-  Future<void> addPropertyRoom({
-    required String propertyId,
-    required Map<String, dynamic> data,
-  }) async {
-    await propertyRooms(propertyId).add(_withCreatedTimestamp(data));
-  }
-
   Future<void> deletePropertyRoom({
     required String propertyId,
     required String roomId,
@@ -274,6 +312,72 @@ class FirestoreService {
 
   Stream<List<Map<String, dynamic>>> watchBookings() {
     return bookings.snapshots().map(_documentsToMaps);
+  }
+
+  Stream<List<Map<String, dynamic>>> watchBookingsByProperty(
+    String propertyId,
+  ) {
+    return bookings
+        .where('propertyId', isEqualTo: propertyId)
+        .snapshots()
+        .map(_documentsToMaps);
+  }
+
+  Stream<List<Map<String, dynamic>>> watchStaffByProperty(String propertyId) {
+    return users
+        .where('propertyId', isEqualTo: propertyId)
+        .where('isStaff', isEqualTo: true)
+        .snapshots()
+        .map(_documentsToMaps);
+  }
+
+  /// Returns the paid-booking totals that the currently signed-in user is
+  /// allowed to read. Owners must supply their property ID so the query stays
+  /// within the scope enforced by Firestore rules.
+  Future<RevenueReport> getRevenueReport({
+    String? propertyId,
+    RevenuePeriod period = RevenuePeriod.month,
+    DateTime? now,
+  }) async {
+    final scopedPropertyId = propertyId?.trim();
+    if (scopedPropertyId != null && scopedPropertyId.isEmpty) {
+      throw ArgumentError.value(propertyId, 'propertyId', 'must not be empty');
+    }
+
+    if (scopedPropertyId != null) {
+      final bookingFuture = bookings
+          .where('propertyId', isEqualTo: scopedPropertyId)
+          .get();
+      final propertyFuture = properties.doc(scopedPropertyId).get();
+      final bookingSnapshot = await bookingFuture;
+      final propertySnapshot = await propertyFuture;
+      final scopedProperties = propertySnapshot.exists
+          ? [
+              {
+                ...?propertySnapshot.data(),
+                'id': propertySnapshot.id,
+              },
+            ]
+          : const <Map<String, dynamic>>[];
+
+      return createRevenueReport(
+        properties: scopedProperties,
+        bookings: _documentsToMaps(bookingSnapshot),
+        period: period,
+        now: now,
+      );
+    }
+
+    final bookingFuture = bookings.get();
+    final propertyFuture = properties.get();
+    final bookingSnapshot = await bookingFuture;
+    final propertySnapshot = await propertyFuture;
+    return createRevenueReport(
+      properties: _documentsToMaps(propertySnapshot),
+      bookings: _documentsToMaps(bookingSnapshot),
+      period: period,
+      now: now,
+    );
   }
 
   Future<String> addBooking(Map<String, dynamic> data) async {
@@ -354,17 +458,6 @@ class FirestoreService {
         .set(_withUpdatedTimestamp(data), SetOptions(merge: true));
   }
 
-  Future<void> updateUserRole({required String userId, required String role}) {
-    return setUser(userId, {'role': role.toUpperCase()});
-  }
-
-  Future<void> updateUserStatus({
-    required String userId,
-    required bool active,
-  }) {
-    return setUser(userId, {'isActive': active});
-  }
-
   // ============================================================
   // FAVORITES
   // ============================================================
@@ -432,4 +525,222 @@ class FirestoreService {
   Map<String, dynamic> _withUpdatedTimestamp(Map<String, dynamic> data) {
     return {...data, 'updatedAt': FieldValue.serverTimestamp()};
   }
+}
+
+enum RevenuePeriod {
+  week('Tuần '),
+  month('Tháng '),
+  year('Năm ');
+
+  const RevenuePeriod(this.label);
+
+  final String label;
+}
+
+class RevenueReport {
+  const RevenueReport({
+    required this.period,
+    required this.totalRevenue,
+    required this.paidBookingCount,
+    required this.properties,
+    required this.trend,
+  });
+
+  final RevenuePeriod period;
+  final int totalRevenue;
+  final int paidBookingCount;
+  final List<RevenuePropertyReport> properties;
+  final List<RevenueReportTrendPoint> trend;
+}
+
+class RevenuePropertyReport {
+  const RevenuePropertyReport({
+    required this.propertyId,
+    required this.propertyName,
+    required this.revenue,
+    required this.paidBookingCount,
+  });
+
+  final String propertyId;
+  final String propertyName;
+  final int revenue;
+  final int paidBookingCount;
+}
+
+class RevenueReportTrendPoint {
+  const RevenueReportTrendPoint({
+    required this.label,
+    required this.revenue,
+  });
+
+  final String label;
+  final int revenue;
+}
+
+/// Builds the revenue payload shared by the admin and owner dashboards.
+/// Only paid bookings created in the selected period contribute to revenue.
+RevenueReport createRevenueReport({
+  required Iterable<Map<String, dynamic>> properties,
+  required Iterable<Map<String, dynamic>> bookings,
+  RevenuePeriod period = RevenuePeriod.month,
+  DateTime? now,
+}) {
+  final reportDate = now ?? DateTime.now();
+  final range = _revenueRange(period, reportDate);
+  final propertyNames = <String, String>{
+    for (final property in properties)
+      if (property['id']?.toString().isNotEmpty ?? false)
+        property['id'].toString(): property['name']?.toString() ?? 'Khách sạn',
+  };
+  final totals = <String, _RevenueTotal>{};
+  final trendRevenue = List<int>.filled(
+    _revenueTrendLabels(period, reportDate).length,
+    0,
+  );
+
+  for (final booking in bookings) {
+    if (booking['paymentStatus']?.toString().toLowerCase() != 'paid') {
+      continue;
+    }
+
+    final propertyId = booking['propertyId']?.toString() ?? '';
+    if (!propertyNames.containsKey(propertyId)) continue;
+    final bookingDate =
+        _readRevenueDate(booking['createdAt']) ??
+        _readRevenueDate(booking['checkIn']);
+    if (bookingDate == null ||
+        bookingDate.isBefore(range.start) ||
+        !bookingDate.isBefore(range.end)) {
+      continue;
+    }
+
+    final total = totals.putIfAbsent(propertyId, _RevenueTotal.new);
+    final revenue = _revenueAmount(booking['totalPrice']);
+    total.revenue += revenue;
+    total.paidBookingCount += 1;
+    final trendIndex = _revenueTrendIndex(
+      period: period,
+      bookingDate: bookingDate,
+      rangeStart: range.start,
+    );
+    if (trendIndex >= 0 && trendIndex < trendRevenue.length) {
+      trendRevenue[trendIndex] += revenue;
+    }
+  }
+
+  final reports = propertyNames.entries
+      .map(
+        (property) {
+          final total = totals[property.key] ?? _RevenueTotal();
+          return RevenuePropertyReport(
+            propertyId: property.key,
+            propertyName: property.value,
+            revenue: total.revenue,
+            paidBookingCount: total.paidBookingCount,
+          );
+        },
+      )
+      .toList(growable: false)
+    ..sort((a, b) => b.revenue.compareTo(a.revenue));
+  final labels = _revenueTrendLabels(period, reportDate);
+
+  return RevenueReport(
+    period: period,
+    totalRevenue: reports.fold<int>(
+      0,
+      (total, report) => total + report.revenue,
+    ),
+    paidBookingCount: reports.fold<int>(
+      0,
+      (total, report) => total + report.paidBookingCount,
+    ),
+    properties: reports,
+    trend: List.generate(
+      labels.length,
+      (index) => RevenueReportTrendPoint(
+        label: labels[index],
+        revenue: trendRevenue[index],
+      ),
+      growable: false,
+    ),
+  );
+}
+
+class _RevenueTotal {
+  int revenue = 0;
+  int paidBookingCount = 0;
+}
+
+int _revenueAmount(dynamic value) {
+  if (value is num) return value.round();
+  return num.tryParse(value?.toString() ?? '')?.round() ?? 0;
+}
+
+({DateTime start, DateTime end}) _revenueRange(
+  RevenuePeriod period,
+  DateTime now,
+) {
+  final today = DateTime(now.year, now.month, now.day);
+  return switch (period) {
+    RevenuePeriod.week => (
+      start: today.subtract(Duration(days: today.weekday - DateTime.monday)),
+      end: today
+          .subtract(Duration(days: today.weekday - DateTime.monday))
+          .add(const Duration(days: 7)),
+    ),
+    RevenuePeriod.month => (
+      start: DateTime(now.year, now.month),
+      end: DateTime(now.year, now.month + 1),
+    ),
+    RevenuePeriod.year => (
+      start: DateTime(now.year),
+      end: DateTime(now.year + 1),
+    ),
+  };
+}
+
+List<String> _revenueTrendLabels(RevenuePeriod period, DateTime now) {
+  return switch (period) {
+    RevenuePeriod.week => const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+    RevenuePeriod.month => List.generate(
+      (DateTime(now.year, now.month + 1, 0).day + 6) ~/ 7,
+      (index) {
+        final firstDay = index * 7 + 1;
+        final lastDay = (firstDay + 6).clamp(
+          1,
+          DateTime(now.year, now.month + 1, 0).day,
+        );
+        return '$firstDay-$lastDay';
+      },
+      growable: false,
+    ),
+    RevenuePeriod.year => List.generate(
+      12,
+      (index) => 'T${index + 1}',
+      growable: false,
+    ),
+  };
+}
+
+int _revenueTrendIndex({
+  required RevenuePeriod period,
+  required DateTime bookingDate,
+  required DateTime rangeStart,
+}) {
+  return switch (period) {
+    RevenuePeriod.week =>
+      DateTime(bookingDate.year, bookingDate.month, bookingDate.day)
+          .difference(rangeStart)
+          .inDays,
+    RevenuePeriod.month => (bookingDate.day - 1) ~/ 7,
+    RevenuePeriod.year => bookingDate.month - 1,
+  };
+}
+
+DateTime? _readRevenueDate(dynamic value) {
+  if (value is Timestamp) return value.toDate();
+  if (value is DateTime) return value;
+  if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+  if (value is String) return DateTime.tryParse(value);
+  return null;
 }

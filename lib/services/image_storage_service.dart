@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -11,8 +13,9 @@ class ImageStorageService {
     required String propertyId,
     required String roomId,
     required XFile image,
+    Uint8List? imageBytes,
   }) async {
-    final bytes = await image.readAsBytes();
+    final bytes = imageBytes ?? await image.readAsBytes();
     if (bytes.isEmpty) {
       throw const FormatException('Ảnh được chọn không có dữ liệu.');
     }
@@ -26,9 +29,9 @@ class ImageStorageService {
     final safeExtension = RegExp(r'^[a-z0-9]{2,5}$').hasMatch(extension)
         ? extension
         : 'jpg';
-    final reference = _storage
-        .ref()
-        .child('properties/$propertyId/rooms/$roomId/${DateTime.now().microsecondsSinceEpoch}.$safeExtension');
+    final reference = _storage.ref().child(
+      'properties/$propertyId/rooms/$roomId/${DateTime.now().microsecondsSinceEpoch}.$safeExtension',
+    );
     final result = await reference.putData(
       bytes,
       SettableMetadata(
@@ -57,11 +60,9 @@ class ImageStorageService {
     final safeExtension = RegExp(r'^[a-z0-9]{2,5}$').hasMatch(extension)
         ? extension
         : 'jpg';
-    final reference = _storage
-        .ref()
-        .child(
-          'users/$ownerId/onboarding/property-${DateTime.now().microsecondsSinceEpoch}.$safeExtension',
-        );
+    final reference = _storage.ref().child(
+      'users/$ownerId/onboarding/property-${DateTime.now().microsecondsSinceEpoch}.$safeExtension',
+    );
     final result = await reference.putData(
       bytes,
       SettableMetadata(contentType: image.mimeType ?? 'image/jpeg'),

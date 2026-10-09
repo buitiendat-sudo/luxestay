@@ -121,6 +121,7 @@ class _OwnerRoomsScreenState extends State<OwnerRoomsScreen> {
     String propertyId, [
     Map<String, dynamic>? room,
   ]) async {
+    final messenger = ScaffoldMessenger.of(context);
     final name = TextEditingController(text: room?['name']?.toString() ?? '');
     final price = TextEditingController(
       text: room?['pricePerNight']?.toString() ?? '',
@@ -272,6 +273,7 @@ class _OwnerRoomsScreenState extends State<OwnerRoomsScreen> {
                                   return Image.memory(
                                     snapshot.data!,
                                     fit: BoxFit.cover,
+                                    cacheWidth: 180,
                                   );
                                 },
                               ),
@@ -312,9 +314,9 @@ class _OwnerRoomsScreenState extends State<OwnerRoomsScreen> {
                                 }
                                 final selected = await imagePicker
                                     .pickMultiImage(
-                                      maxWidth: 1600,
-                                      maxHeight: 1200,
-                                      imageQuality: 80,
+                                      maxWidth: 1280,
+                                      maxHeight: 960,
+                                      imageQuality: 60,
                                       limit: remaining,
                                     );
                                 if (!dialogContext.mounted) return;
@@ -371,6 +373,7 @@ class _OwnerRoomsScreenState extends State<OwnerRoomsScreen> {
                               propertyId: propertyId,
                               roomId: roomId,
                               image: file,
+                              imageBytes: await pickedImageBytes[file]!,
                             );
                             if (dialogContext.mounted) {
                               setDialogState(() => uploadedImageCount++);
@@ -457,7 +460,16 @@ class _OwnerRoomsScreenState extends State<OwnerRoomsScreen> {
     maxGuests.dispose();
     featuredAmenities.dispose();
     amenities.dispose();
-    if (saved == true && mounted) setState(() {});
+    if (saved == true && mounted) {
+      setState(() {});
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            room == null ? 'Đã thêm hạng phòng.' : 'Đã cập nhật hạng phòng.',
+          ),
+        ),
+      );
+    }
   }
 
   static List<String> _splitAmenities(String value) {

@@ -7,9 +7,8 @@ import 'package:provider/provider.dart';
 import '../../services/firestore_service.dart';
 import '../../services/google_geocoding_service.dart';
 import '../../widgets/admin_chrome.dart';
-import 'admin_bookings_screen.dart';
+import 'admin_operations_screen.dart';
 import 'admin_rooms_screen.dart';
-import 'admin_users_screen.dart';
 
 class AdminHotelsScreen extends StatelessWidget {
   const AdminHotelsScreen({super.key});
@@ -24,12 +23,15 @@ class AdminHotelsScreen extends StatelessWidget {
       bottomNavigationBar: AdminBottomNavigation(
         selectedIndex: 0,
         onSelected: (index) {
-          if (index == 0) return;
+          if (index == 0) {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+            return;
+          }
 
           final page = switch (index) {
-            1 => const AdminRoomsScreen(),
-            2 => const AdminBookingsScreen(),
-            _ => const AdminUsersScreen(),
+            1 => const AdminRoomMapScreen(),
+            2 => const AdminRoomsScreen(),
+            _ => const AdminCheckinScreen(),
           };
 
           Navigator.pushReplacement(
@@ -521,46 +523,46 @@ class _GeocodePropertiesButtonState extends State<_GeocodePropertiesButton> {
     var completed = 0;
 
     Future<void> processHotel(Map<String, dynamic> hotel) async {
-        final name = hotel['name']?.toString().trim() ?? '';
-        final id = hotel['id']?.toString() ?? '';
+      final name = hotel['name']?.toString().trim() ?? '';
+      final id = hotel['id']?.toString() ?? '';
 
-        try {
-          if (id.isEmpty) {
-            throw const GoogleGeocodingException(
-              'Không tìm thấy mã resort trong Firestore.',
-            );
-          }
-
-          final coordinates = await _geocodingService.geocodeHotel(
-            name: name,
-            location: hotel['location']?.toString() ?? '',
-            address: hotel['address']?.toString(),
+      try {
+        if (id.isEmpty) {
+          throw const GoogleGeocodingException(
+            'Không tìm thấy mã resort trong Firestore.',
           );
-          await firestore.updatePropertyCoordinates(
-            propertyId: id,
-            latitude: coordinates.latitude,
-            longitude: coordinates.longitude,
-            formattedAddress: coordinates.formattedAddress,
-            locationType: coordinates.locationType,
-          );
-          updated++;
-        } on GoogleGeocodingException catch (error) {
-          failures.add('$name: ${error.message}');
-        } on http.ClientException catch (error) {
-          failures.add('$name: Lỗi kết nối tới Google (${error.message}).');
-        } on FirebaseException catch (error) {
-          failures.add(
-            '$name: Không lưu được tọa độ vào Firestore '
-            '(${error.message ?? error.code}).',
-          );
-        } catch (error) {
-          failures.add('$name: Lỗi không xác định ($error).');
-        } finally {
-          completed++;
-          if (mounted) {
-            setState(() => _completed = completed);
-          }
         }
+
+        final coordinates = await _geocodingService.geocodeHotel(
+          name: name,
+          location: hotel['location']?.toString() ?? '',
+          address: hotel['address']?.toString(),
+        );
+        await firestore.updatePropertyCoordinates(
+          propertyId: id,
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+          formattedAddress: coordinates.formattedAddress,
+          locationType: coordinates.locationType,
+        );
+        updated++;
+      } on GoogleGeocodingException catch (error) {
+        failures.add('$name: ${error.message}');
+      } on http.ClientException catch (error) {
+        failures.add('$name: Lỗi kết nối tới Google (${error.message}).');
+      } on FirebaseException catch (error) {
+        failures.add(
+          '$name: Không lưu được tọa độ vào Firestore '
+          '(${error.message ?? error.code}).',
+        );
+      } catch (error) {
+        failures.add('$name: Lỗi không xác định ($error).');
+      } finally {
+        completed++;
+        if (mounted) {
+          setState(() => _completed = completed);
+        }
+      }
     }
 
     try {

@@ -3,6 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
@@ -10,6 +12,7 @@ import 'providers/auth_provider.dart';
 
 import 'screens/admin/admin_bookings_screen.dart';
 import 'screens/admin/admin_hotels_screen.dart';
+import 'screens/admin/admin_operations_screen.dart';
 import 'screens/admin/admin_rooms_screen.dart';
 import 'screens/admin/admin_users_screen.dart';
 
@@ -25,25 +28,25 @@ import 'widgets/admin_chrome.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('vi_VN');
+  Intl.defaultLocale = 'vi_VN';
 
   // ============================================================
   // FIREBASE
   // ============================================================
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // ============================================================
   // FIREBASE APP CHECK
   // ============================================================
 
   if (kIsWeb) {
-  await FirebaseAppCheck.instance.activate(
-    webProvider: ReCaptchaV3Provider(
-      '6LdHb9ctAAAAAG2quC3rkEuV-FsmPWAlR2nDeVQc',
-    ),
-  );
+    await FirebaseAppCheck.instance.activate(
+      webProvider: ReCaptchaV3Provider(
+        '6LdHb9ctAAAAAG2quC3rkEuV-FsmPWAlR2nDeVQc',
+      ),
+    );
   } else {
     await FirebaseAppCheck.instance.activate(
       androidProvider: AndroidProvider.debug,
@@ -65,13 +68,9 @@ class LuxestayApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (_) => AuthProvider(),
-        ),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
 
-        Provider(
-          create: (_) => FirestoreService(),
-        ),
+        Provider(create: (_) => FirestoreService()),
       ],
       child: MaterialApp(
         title: 'LuxeStay',
@@ -80,7 +79,6 @@ class LuxestayApp extends StatelessWidget {
         // ======================================================
         // THEME
         // ======================================================
-
         theme: ThemeData(
           colorScheme: const ColorScheme.light(
             primary: Color(0xFF0F172A),
@@ -92,49 +90,37 @@ class LuxestayApp extends StatelessWidget {
 
           useMaterial3: true,
 
-          scaffoldBackgroundColor:
-              const Color(0xFFF8F9FF),
+          scaffoldBackgroundColor: const Color(0xFFF8F9FF),
 
-          textTheme:
-              GoogleFonts.plusJakartaSansTextTheme(),
+          textTheme: GoogleFonts.plusJakartaSansTextTheme(),
 
           appBarTheme: AppBarTheme(
-            backgroundColor:
-                const Color(0xFFF8F9FF),
-            foregroundColor:
-                const Color(0xFF0F172A),
+            backgroundColor: const Color(0xFFF8F9FF),
+            foregroundColor: const Color(0xFF0F172A),
             elevation: 0,
             centerTitle: false,
 
-            titleTextStyle:
-                GoogleFonts.plusJakartaSans(
+            titleTextStyle: GoogleFonts.plusJakartaSans(
               color: const Color(0xFF0F172A),
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
           ),
 
-          navigationBarTheme:
-              NavigationBarThemeData(
-            backgroundColor:
-                const Color(0xFFFBFBFF),
+          navigationBarTheme: NavigationBarThemeData(
+            backgroundColor: const Color(0xFFFBFBFF),
             height: 72,
-            indicatorColor:
-                Colors.transparent,
+            indicatorColor: Colors.transparent,
 
-            labelTextStyle:
-                WidgetStatePropertyAll(
+            labelTextStyle: WidgetStatePropertyAll(
               GoogleFonts.plusJakartaSans(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
             ),
 
-            iconTheme:
-                const WidgetStatePropertyAll(
-              IconThemeData(
-                color: Color(0xFF0F172A),
-              ),
+            iconTheme: const WidgetStatePropertyAll(
+              IconThemeData(color: Color(0xFF0F172A)),
             ),
           ),
         ),
@@ -150,17 +136,13 @@ class LuxestayApp extends StatelessWidget {
 // ================================================================
 
 class MainNavigationScreen extends StatefulWidget {
-  const MainNavigationScreen({
-    super.key,
-  });
+  const MainNavigationScreen({super.key});
 
   @override
-  State<MainNavigationScreen> createState() =>
-      _MainNavigationScreenState();
+  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState
-    extends State<MainNavigationScreen> {
+class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
 
   static const _screens = [
@@ -173,13 +155,9 @@ class _MainNavigationScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _screens),
 
-      bottomNavigationBar:
-          NavigationBar(
+      bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
 
         onDestinationSelected: (index) {
@@ -190,42 +168,26 @@ class _MainNavigationScreenState
 
         destinations: const [
           NavigationDestination(
-            icon: Icon(
-              Icons.explore_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons.explore,
-            ),
+            icon: Icon(Icons.explore_outlined),
+            selectedIcon: Icon(Icons.explore),
             label: 'Khám phá',
           ),
 
           NavigationDestination(
-            icon: Icon(
-              Icons.favorite_border,
-            ),
-            selectedIcon: Icon(
-              Icons.favorite,
-            ),
+            icon: Icon(Icons.favorite_border),
+            selectedIcon: Icon(Icons.favorite),
             label: 'Yêu thích',
           ),
 
           NavigationDestination(
-            icon: Icon(
-              Icons.luggage_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons.luggage,
-            ),
+            icon: Icon(Icons.luggage_outlined),
+            selectedIcon: Icon(Icons.luggage),
             label: 'Chuyến đi',
           ),
 
           NavigationDestination(
-            icon: Icon(
-              Icons.person_outline,
-            ),
-            selectedIcon: Icon(
-              Icons.person,
-            ),
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
             label: 'Tài khoản',
           ),
         ],
@@ -238,461 +200,74 @@ class _MainNavigationScreenState
 // ADMIN DASHBOARD
 // ================================================================
 
-class AdminDashboardScreen
-    extends StatelessWidget {
-  const AdminDashboardScreen({
-    super.key,
-  });
+class AdminDashboardScreen extends StatelessWidget {
+  const AdminDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final auth =
-        context.watch<AuthProvider>();
-
     return Scaffold(
-      backgroundColor:
-          const Color(0xFFF5F7FF),
+      backgroundColor: const Color(0xFFF5F7FF),
 
       appBar: AdminHeader(
         title: 'Tổng quan',
 
         onLogout: () {
-          context
-              .read<AuthProvider>()
-              .logout();
+          context.read<AuthProvider>().logout();
         },
       ),
 
-      bottomNavigationBar:
-          AdminBottomNavigation(
+      bottomNavigationBar: AdminBottomNavigation(
         selectedIndex: 0,
 
         onSelected: (index) {
           if (index == 0) return;
 
           final page = switch (index) {
-            1 => const AdminRoomsScreen(),
-            2 => const AdminBookingsScreen(),
-            _ => const AdminUsersScreen(),
+            1 => const AdminRoomMapScreen(),
+            2 => const AdminRoomsScreen(),
+            _ => const AdminCheckinScreen(),
           };
 
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => page,
-            ),
-          );
+          Navigator.push(context, MaterialPageRoute(builder: (_) => page));
         },
       ),
 
-      body: SingleChildScrollView(
-        padding:
-            const EdgeInsets.all(20),
-
-        child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
-
-          children: [
-            // ==================================================
-            // HEADER
-            // ==================================================
-
-            const Text(
-              'Xin chào Admin 👋',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight:
-                    FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(
-              height: 6,
-            ),
-
-            Text(
-              auth.user?.email ?? '',
-              style: TextStyle(
-                color:
-                    Colors.grey.shade600,
-              ),
-            ),
-
-            const SizedBox(
-              height: 28,
-            ),
-
-            // ==================================================
-            // DASHBOARD TITLE
-            // ==================================================
-
-            const Text(
-              'Tổng quan',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight:
-                    FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(
-              height: 16,
-            ),
-
-            // ==================================================
-            // STATISTICS
-            // ==================================================
-
-            _DashboardStats(
-              firestore:
-                  context.read<
-                      FirestoreService>(),
-            ),
-
-            const SizedBox(
-              height: 30,
-            ),
-
-            // ==================================================
-            // MANAGEMENT
-            // ==================================================
-
-            const Text(
-              'Quản lý',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight:
-                    FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(
-              height: 14,
-            ),
-
-            // ==================================================
-            // HOTELS
-            // ==================================================
-
-            _ManagementItem(
-              icon:
-                  Icons.hotel_outlined,
-              title:
-                  'Quản lý Resort',
-              subtitle:
-                  'Thêm, sửa và xóa resort',
-
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        const AdminHotelsScreen(),
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(
-              height: 12,
-            ),
-
-            // ==================================================
-            // ROOMS
-            // ==================================================
-
-            _ManagementItem(
-              icon:
-                  Icons.bed_outlined,
-              title:
-                  'Quản lý phòng',
-              subtitle:
-                  'Quản lý phòng và tình trạng bán',
-
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        const AdminRoomsScreen(),
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(
-              height: 12,
-            ),
-
-            // ==================================================
-            // BOOKINGS
-            // ==================================================
-
-            _ManagementItem(
-              icon:
-                  Icons.calendar_month_outlined,
-              title:
-                  'Quản lý Booking',
-              subtitle:
-                  'Xác nhận và xử lý đặt phòng',
-
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        const AdminBookingsScreen(),
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(
-              height: 12,
-            ),
-
-            // ==================================================
-            // USERS
-            // ==================================================
-
-            _ManagementItem(
-              icon:
-                  Icons.people_outline,
-              title:
-                  'Quản lý khách hàng',
-              subtitle:
-                  'Danh sách người dùng LuxeStay',
-
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        const AdminUsersScreen(),
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(
-              height: 12,
-            ),
-
-            // ==================================================
-            // REVIEWS
-            // ==================================================
-
-            const _ManagementItem(
-              icon:
-                  Icons.star_outline,
-              title:
-                  'Quản lý đánh giá',
-              subtitle:
-                  'Xem đánh giá của khách hàng',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ================================================================
-// DASHBOARD STATS
-// ================================================================
-
-class _DashboardStats
-    extends StatelessWidget {
-  const _DashboardStats({
-    required this.firestore,
-  });
-
-  final FirestoreService firestore;
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<
-        List<Map<String, dynamic>>>(
-      stream:
-          firestore.watchProperties(),
-
-      builder:
-          (context, propertiesSnapshot) {
-        return StreamBuilder<
-            List<Map<String, dynamic>>>(
-          stream:
-              firestore.watchRooms(),
-
-          builder:
-              (context, roomsSnapshot) {
-            return StreamBuilder<
-                List<Map<String, dynamic>>>(
-              stream:
-                  firestore.watchBookings(),
-
-              builder:
-                  (context, bookingsSnapshot) {
-                return StreamBuilder<
-                    List<Map<String, dynamic>>>(
-                  stream:
-                      firestore.watchUsers(),
-
-                  builder:
-                      (context, usersSnapshot) {
-                    final customerCount =
-                        usersSnapshot.data
-                                ?.where(
-                              (user) =>
-                                  user['role']
-                                      ?.toString()
-                                      .toUpperCase() !=
-                                  'ADMIN',
-                            )
-                                .length ??
-                            0;
-
-                    return GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-
-                      physics:
-                          const NeverScrollableScrollPhysics(),
-
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: 1.35,
-
-                      children: [
-                        _DashboardCard(
-                          title: 'Resort',
-                          value:
-                              '${propertiesSnapshot.data?.length ?? 0}',
-                          icon:
-                              Icons.hotel_outlined,
-                        ),
-
-                        _DashboardCard(
-                          title: 'Phòng',
-                          value:
-                              '${roomsSnapshot.data?.length ?? 0}',
-                          icon:
-                              Icons.bed_outlined,
-                        ),
-
-                        _DashboardCard(
-                          title: 'Booking',
-                          value:
-                              '${bookingsSnapshot.data?.length ?? 0}',
-                          icon:
-                              Icons.calendar_month_outlined,
-                        ),
-
-                        _DashboardCard(
-                          title: 'Khách hàng',
-                          value:
-                              '$customerCount',
-                          icon:
-                              Icons.people_outline,
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-// ================================================================
-// DASHBOARD CARD
-// ================================================================
-
-class _DashboardCard
-    extends StatelessWidget {
-  const _DashboardCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-  });
-
-  final String title;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding:
-          const EdgeInsets.all(18),
-
-      decoration: BoxDecoration(
-        color: Colors.white,
-
-        borderRadius:
-            BorderRadius.circular(18),
-
-        border: Border.all(
-          color:
-              Colors.grey.shade200,
-        ),
-      ),
-
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-
-        mainAxisAlignment:
-            MainAxisAlignment.spaceBetween,
-
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-
-            decoration:
-                BoxDecoration(
-              color:
-                  const Color(0xFFFFF7ED),
-
-              borderRadius:
-                  BorderRadius.circular(12),
-            ),
-
-            child: Icon(
-              icon,
-              color:
-                  const Color(0xFFD97706),
+      body: AdminOperationsDashboard(
+        additionalContent: [
+          const SizedBox(height: 16),
+          const Text(
+            'Quản lý hệ thống',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          _ManagementItem(
+            icon: Icons.hotel_outlined,
+            title: 'Quản lý Resort',
+            subtitle: 'Cập nhật thông tin và trạng thái cơ sở',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AdminHotelsScreen()),
             ),
           ),
-
-          Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-
-            children: [
-              Text(
-                value,
-                style:
-                    const TextStyle(
-                  fontSize: 24,
-                  fontWeight:
-                      FontWeight.bold,
-                ),
-              ),
-
-              Text(
-                title,
-                style: TextStyle(
-                  color:
-                      Colors.grey.shade600,
-                ),
-              ),
-            ],
+          const SizedBox(height: 8),
+          _ManagementItem(
+            icon: Icons.calendar_month_outlined,
+            title: 'Tất cả booking',
+            subtitle: 'Duyệt, cập nhật và theo dõi đặt phòng',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AdminBookingsScreen()),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _ManagementItem(
+            icon: Icons.people_outline,
+            title: 'Tài khoản khách hàng',
+            subtitle: 'Danh sách và phân quyền người dùng',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AdminUsersScreen()),
+            ),
           ),
         ],
       ),
@@ -704,8 +279,7 @@ class _DashboardCard
 // MANAGEMENT ITEM
 // ================================================================
 
-class _ManagementItem
-    extends StatelessWidget {
+class _ManagementItem extends StatelessWidget {
   const _ManagementItem({
     required this.icon,
     required this.title,
@@ -723,23 +297,17 @@ class _ManagementItem
     return InkWell(
       onTap: onTap,
 
-      borderRadius:
-          BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(16),
 
       child: Container(
-        padding:
-            const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
 
         decoration: BoxDecoration(
           color: Colors.white,
 
-          borderRadius:
-              BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16),
 
-          border: Border.all(
-            color:
-                Colors.grey.shade200,
-          ),
+          border: Border.all(color: Colors.grey.shade200),
         ),
 
         child: Row(
@@ -748,61 +316,41 @@ class _ManagementItem
               width: 48,
               height: 48,
 
-              decoration:
-                  BoxDecoration(
-                color:
-                    const Color(0xFFFFF7ED),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
 
-                borderRadius:
-                    BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(14),
               ),
 
-              child: Icon(
-                icon,
-                color:
-                    const Color(0xFFD97706),
-              ),
+              child: Icon(icon, color: const Color(0xFFD97706)),
             ),
 
-            const SizedBox(
-              width: 14,
-            ),
+            const SizedBox(width: 14),
 
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
 
                 children: [
                   Text(
                     title,
-                    style:
-                        const TextStyle(
-                      fontWeight:
-                          FontWeight.bold,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
                   ),
 
-                  const SizedBox(
-                    height: 3,
-                  ),
+                  const SizedBox(height: 3),
 
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      color:
-                          Colors.grey.shade600,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                   ),
                 ],
               ),
             ),
 
-            const Icon(
-              Icons.chevron_right,
-            ),
+            const Icon(Icons.chevron_right),
           ],
         ),
       ),

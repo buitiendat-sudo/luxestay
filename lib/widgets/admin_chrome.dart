@@ -7,13 +7,8 @@ import '../providers/auth_provider.dart';
 // ADMIN HEADER
 // ============================================================
 
-class AdminHeader extends StatelessWidget
-    implements PreferredSizeWidget {
-  const AdminHeader({
-    super.key,
-    required this.title,
-    this.onLogout,
-  });
+class AdminHeader extends StatelessWidget implements PreferredSizeWidget {
+  const AdminHeader({super.key, required this.title, this.onLogout});
 
   final String title;
   final VoidCallback? onLogout;
@@ -23,8 +18,7 @@ class AdminHeader extends StatelessWidget
 
   @override
   Widget build(BuildContext context) {
-    final logout = onLogout ??
-        () => context.read<AuthProvider>().logout();
+    final logout = onLogout ?? () => context.read<AuthProvider>().logout();
 
     return AppBar(
       automaticallyImplyLeading: false,
@@ -46,8 +40,8 @@ class AdminHeader extends StatelessWidget
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
-              Icons.apartment_rounded,
-              color: Colors.white,
+              Icons.home_work_outlined,
+              color: Color(0xFFFFA12E),
               size: 20,
             ),
           ),
@@ -57,14 +51,37 @@ class AdminHeader extends StatelessWidget
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  'LUXESTAY ADMIN',
-                  style: TextStyle(
-                    color: Color(0xFFEA580C),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.1,
-                  ),
+                Row(
+                  children: [
+                    const Text(
+                      'LUXESTAY MANAGER',
+                      style: TextStyle(
+                        color: Color(0xFF9A4B0B),
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Color(0xFFFFE0C7),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'Quản lý cơ sở',
+                        style: TextStyle(
+                          color: Color(0xFF78350F),
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 1),
                 Text(
@@ -92,11 +109,7 @@ class AdminHeader extends StatelessWidget
           tooltip: 'Thông báo',
           onPressed: () {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Bạn chưa có thông báo mới.',
-                ),
-              ),
+              const SnackBar(content: Text('Bạn chưa có thông báo mới.')),
             );
           },
           icon: const Badge(
@@ -110,73 +123,70 @@ class AdminHeader extends StatelessWidget
 
         // Admin account / logout
         PopupMenuButton<String>(
-            tooltip: 'Tài khoản Admin',
-            offset: const Offset(0, 45),
-            icon: Container(
-              width: 34,
-              height: 34,
-              decoration: const BoxDecoration(
-                color: Color(0xFF111827),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.person_rounded,
-                color: Colors.white,
-                size: 18,
+          tooltip: 'Tài khoản Admin',
+          offset: const Offset(0, 45),
+          icon: Container(
+            width: 34,
+            height: 34,
+            decoration: const BoxDecoration(
+              color: Color(0xFF111827),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.person_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
+          onSelected: (value) {
+            if (value == 'logout') {
+              _showLogoutDialog(context, logout);
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem<String>(
+              enabled: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'LuxeStay Admin',
+                    style: TextStyle(
+                      color: Color(0xFF111827),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Quản trị hệ thống',
+                    style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                  ),
+                ],
               ),
             ),
-            onSelected: (value) {
-              if (value == 'logout') {
-                _showLogoutDialog(context, logout);
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem<String>(
-                enabled: false,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'LuxeStay Admin',
-                      style: TextStyle(
-                        color: Color(0xFF111827),
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Quản trị hệ thống',
-                      style: TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              PopupMenuDivider(),
-              PopupMenuItem<String>(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.logout_rounded,
-                      size: 19,
+            PopupMenuDivider(),
+            PopupMenuItem<String>(
+              value: 'logout',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.logout_rounded,
+                    size: 19,
+                    color: Color(0xFFDC2626),
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Đăng xuất',
+                    style: TextStyle(
                       color: Color(0xFFDC2626),
+                      fontWeight: FontWeight.w600,
                     ),
-                    SizedBox(width: 10),
-                    Text(
-                      'Đăng xuất',
-                      style: TextStyle(
-                        color: Color(0xFFDC2626),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
 
         const SizedBox(width: 8),
       ],
@@ -186,18 +196,12 @@ class AdminHeader extends StatelessWidget
       // ========================================================
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(
-          height: 1,
-          color: const Color(0xFFE5E7EB),
-        ),
+        child: Container(height: 1, color: const Color(0xFFE5E7EB)),
       ),
     );
   }
 
-  void _showLogoutDialog(
-    BuildContext context,
-    VoidCallback logout,
-  ) {
+  void _showLogoutDialog(BuildContext context, VoidCallback logout) {
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -207,17 +211,9 @@ class AdminHeader extends StatelessWidget
           ),
           title: const Row(
             children: [
-              Icon(
-                Icons.logout_rounded,
-                color: Color(0xFFDC2626),
-              ),
+              Icon(Icons.logout_rounded, color: Color(0xFFDC2626)),
               SizedBox(width: 10),
-              Text(
-                'Đăng xuất',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              Text('Đăng xuất', style: TextStyle(fontWeight: FontWeight.w800)),
             ],
           ),
           content: const Text(
@@ -239,10 +235,7 @@ class AdminHeader extends StatelessWidget
                 backgroundColor: const Color(0xFFDC2626),
                 foregroundColor: Colors.white,
               ),
-              icon: const Icon(
-                Icons.logout_rounded,
-                size: 18,
-              ),
+              icon: const Icon(Icons.logout_rounded, size: 18),
               label: const Text('Đăng xuất'),
             ),
           ],
@@ -271,46 +264,32 @@ class AdminBottomNavigation extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: Color(0xFFE5E7EB),
-          ),
-        ),
+        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
       ),
       child: SafeArea(
         top: false,
         child: NavigationBar(
           selectedIndex: selectedIndex,
           onDestinationSelected: onSelected,
-          height: 70,
+          height: 62,
           elevation: 0,
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
           indicatorColor: const Color(0xFFFFE8D2),
-          labelBehavior:
-              NavigationDestinationLabelBehavior.alwaysShow,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: const [
             NavigationDestination(
-              icon: Icon(
-                Icons.apartment_outlined,
-                color: Color(0xFF64748B),
-              ),
+              icon: Icon(Icons.apartment_outlined, color: Color(0xFF64748B)),
               selectedIcon: Icon(
                 Icons.apartment_rounded,
                 color: Color(0xFFEA580C),
               ),
-              label: 'Khách sạn',
+              label: 'Tổng quan',
             ),
             NavigationDestination(
-              icon: Icon(
-                Icons.bed_outlined,
-                color: Color(0xFF64748B),
-              ),
-              selectedIcon: Icon(
-                Icons.bed_rounded,
-                color: Color(0xFFEA580C),
-              ),
-              label: 'Phòng',
+              icon: Icon(Icons.bed_outlined, color: Color(0xFF64748B)),
+              selectedIcon: Icon(Icons.bed_rounded, color: Color(0xFFEA580C)),
+              label: 'Sơ đồ phòng',
             ),
             NavigationDestination(
               icon: Icon(
@@ -321,7 +300,7 @@ class AdminBottomNavigation extends StatelessWidget {
                 Icons.calendar_month_rounded,
                 color: Color(0xFFEA580C),
               ),
-              label: 'Đặt phòng',
+              label: 'Cấu hình',
             ),
             NavigationDestination(
               icon: Icon(
@@ -332,7 +311,7 @@ class AdminBottomNavigation extends StatelessWidget {
                 Icons.people_rounded,
                 color: Color(0xFFEA580C),
               ),
-              label: 'Người dùng',
+              label: 'Check-in & Cọc',
             ),
           ],
         ),
@@ -366,14 +345,10 @@ class AdminKpiCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(
-              alpha: 0.025,
-            ),
+            color: Colors.black.withValues(alpha: 0.025),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -390,11 +365,7 @@ class AdminKpiCard extends StatelessWidget {
               color: const Color(0xFFFFF1E6),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              icon,
-              size: 19,
-              color: const Color(0xFFEA580C),
-            ),
+            child: Icon(icon, size: 19, color: const Color(0xFFEA580C)),
           ),
 
           const Spacer(),
@@ -493,10 +464,7 @@ class AdminSectionTitle extends StatelessWidget {
         ),
 
         // Dart null-aware collection element
-        if (trailing != null) ...[
-          const SizedBox(width: 10),
-          trailing!,
-        ],
+        if (trailing != null) ...[const SizedBox(width: 10), trailing!],
       ],
     );
   }
@@ -535,10 +503,7 @@ class AdminStatusBadge extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(20),
@@ -559,13 +524,7 @@ class AdminStatusBadge extends StatelessWidget {
 // ADMIN STATUS TYPE
 // ============================================================
 
-enum AdminStatusType {
-  success,
-  warning,
-  danger,
-  info,
-  neutral,
-}
+enum AdminStatusType { success, warning, danger, info, neutral }
 
 // ============================================================
 // ADMIN EMPTY STATE
@@ -587,16 +546,11 @@ class AdminEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 40,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
         children: [
@@ -607,11 +561,7 @@ class AdminEmptyState extends StatelessWidget {
               color: Color(0xFFF1F5F9),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              size: 28,
-              color: const Color(0xFF64748B),
-            ),
+            child: Icon(icon, size: 28, color: const Color(0xFF64748B)),
           ),
           const SizedBox(height: 12),
           Text(
@@ -628,10 +578,7 @@ class AdminEmptyState extends StatelessWidget {
             Text(
               description!,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 11,
-              ),
+              style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
             ),
           ],
         ],

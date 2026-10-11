@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -56,6 +57,29 @@ class _BookingScreenState extends State<BookingScreen> {
       symbol: '₫',
       decimalDigits: 0,
     ).format(price);
+  }
+
+  Future<void> _copyBookingInfo() async {
+    final checkIn = _checkIn == null
+        ? 'Chưa chọn'
+        : DateFormat('dd/MM/yyyy').format(_checkIn!);
+    final checkOut = _checkOut == null
+        ? 'Chưa chọn'
+        : DateFormat('dd/MM/yyyy').format(_checkOut!);
+    final details = '''
+Thông tin đặt phòng LuxeStay
+Khách sạn: ${widget.property.name}
+Địa chỉ: ${widget.property.address.isEmpty ? widget.property.location : widget.property.address}
+Loại phòng: ${widget.room.name}
+Nhận phòng: $checkIn
+Trả phòng: $checkOut
+Số khách: $_guests · Số phòng: $_rooms
+Giá mỗi đêm: ${_formatPrice(widget.room.pricePerNight)}
+Số đêm: $_nights · Tổng tiền: ${_formatPrice(_totalPrice)}
+'''.trim();
+
+    await Clipboard.setData(ClipboardData(text: details));
+    _showMessage('Đã sao chép thông tin đặt phòng.');
   }
 
   Future<void> _selectDates() async {
@@ -183,7 +207,7 @@ class _BookingScreenState extends State<BookingScreen> {
         actions: [
           IconButton(
             tooltip: 'Chia sẻ',
-            onPressed: () {},
+            onPressed: _copyBookingInfo,
             icon: const Icon(
               Icons.share_outlined,
             ),

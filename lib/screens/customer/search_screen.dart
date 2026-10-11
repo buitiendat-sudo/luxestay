@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/property.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/notification_center_button.dart';
 import 'hotel_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -179,9 +180,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ],
             ),
           ),
-          const Icon(
-            Icons.notifications_none_rounded,
-          ),
+          const NotificationCenterButton(),
           const SizedBox(width: 16),
           const CircleAvatar(
             radius: 16,
@@ -249,7 +248,7 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           ),
           FilledButton.icon(
-            onPressed: () {},
+            onPressed: _showFilterSheet,
             icon: const Icon(
               Icons.edit_outlined,
               size: 15,

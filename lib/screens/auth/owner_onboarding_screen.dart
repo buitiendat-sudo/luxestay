@@ -1,11 +1,7 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
-import '../../services/image_storage_service.dart';
 
 const _ownerAgreementVersion = 'owner-partnership-draft-v1';
 const _ownerAgreementText = '''
@@ -50,15 +46,13 @@ class _OwnerOnboardingScreenState extends State<OwnerOnboardingScreen> {
   final _propertyAddressController = TextEditingController();
   final _propertyDescriptionController = TextEditingController();
   final _propertyPhoneController = TextEditingController();
+  final _propertyImageUrlController = TextEditingController();
   final _signedNameController = TextEditingController();
-  final _imagePicker = ImagePicker();
 
   int _step = 0;
   bool _acceptedTerms = false;
-  bool _isUploadingImage = false;
+  bool _isSubmitting = false;
   String? _onboardingError;
-  XFile? _propertyImage;
-  Uint8List? _propertyImageBytes;
 
   @override
   void initState() {
@@ -74,6 +68,7 @@ class _OwnerOnboardingScreenState extends State<OwnerOnboardingScreen> {
     _propertyAddressController.dispose();
     _propertyDescriptionController.dispose();
     _propertyPhoneController.dispose();
+    _propertyImageUrlController.dispose();
     _signedNameController.dispose();
     super.dispose();
   }
@@ -81,27 +76,9 @@ class _OwnerOnboardingScreenState extends State<OwnerOnboardingScreen> {
   Future<void> _finishOnboarding() async {
     final auth = context.read<AuthProvider>();
     setState(() {
-      _isUploadingImage = true;
+      _isSubmitting = true;
       _onboardingError = null;
     });
-    var imageUrl = '';
-    try {
-      if (_propertyImage case final image?) {
-        imageUrl = await context
-            .read<ImageStorageService>()
-            .uploadOwnerPropertyImage(ownerId: auth.user!.uid, image: image);
-      }
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _isUploadingImage = false;
-        _onboardingError = 'Không thể tải ảnh khách sạn lên: $error';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không thể tải ảnh khách sạn lên: $error')),
-      );
-      return;
-    }
     if (!mounted) return;
 
     final success = await auth.completeOwnerOnboarding(
@@ -110,14 +87,14 @@ class _OwnerOnboardingScreenState extends State<OwnerOnboardingScreen> {
       propertyAddress: _propertyAddressController.text,
       propertyDescription: _propertyDescriptionController.text,
       propertyPhone: _propertyPhoneController.text,
-      propertyImageUrl: imageUrl,
+      propertyImageUrl: _propertyImageUrlController.text.trim(),
       signedName: _signedNameController.text,
       agreementVersion: _ownerAgreementVersion,
       agreementText: _ownerAgreementText,
     );
     if (mounted) {
       setState(() {
-        _isUploadingImage = false;
+        _isSubmitting = false;
         if (!success) {
           _onboardingError = auth.errorMessage ?? 'Không thể hoàn tất hồ sơ.';
         }
@@ -251,7 +228,7 @@ class _OwnerOnboardingScreenState extends State<OwnerOnboardingScreen> {
             isRequired: false,
           ),
           const SizedBox(height: 14),
-          _propertyImagePicker(),
+          _propertyImageUrlField(),
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () {
@@ -268,99 +245,76 @@ class _OwnerOnboardingScreenState extends State<OwnerOnboardingScreen> {
     );
   }
 
-  Widget _propertyImagePicker() {
+  Widget _propertyImageUrlField() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Ảnh khách sạn',
-          style: TextStyle(color: _navy, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 8),
-        if (_propertyImageBytes case final bytes?)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Image.memory(
-              bytes,
-              height: 190,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ),
-          )
-        else
-          Container(
-            height: 140,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.add_photo_alternate_outlined,
-                  color: _gold,
-                  size: 34,
-                ),
-                SizedBox(height: 6),
-                Text('Chưa chọn ảnh'),
-              ],
-            ),
+        TextFormField(
+          controller: _propertyImageUrlController,
+          keyboardType: TextInputType.url,
+          textCapitalization: TextCapitalization.none,
+          decoration: const InputDecoration(
+            labelText: 'URL ảnh khách sạn (không bắt buộc)',
+            hintText: 'https://example.com/hotel.jpg',
+            helperText: 'Dán link ảnh công khai; preview bên dưới kiểm tra link.',
+            prefixIcon: Icon(Icons.link_rounded),
+            filled: true,
           ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            OutlinedButton.icon(
-              onPressed: _isUploadingImage ? null : _pickPropertyImage,
-              icon: const Icon(Icons.photo_library_outlined),
-              label: Text(_propertyImage == null ? 'Chọn ảnh' : 'Đổi ảnh'),
-            ),
-            if (_propertyImage != null) ...[
-              const SizedBox(width: 8),
-              TextButton.icon(
-                onPressed: _isUploadingImage
-                    ? null
-                    : () => setState(() {
-                        _propertyImage = null;
-                        _propertyImageBytes = null;
-                      }),
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('Xóa'),
-              ),
-            ],
-          ],
+          validator: (value) {
+            final imageUrl = value?.trim() ?? '';
+            if (imageUrl.isEmpty) return null;
+            final uri = Uri.tryParse(imageUrl);
+            if (uri == null ||
+                !uri.hasAuthority ||
+                !{'http', 'https'}.contains(uri.scheme.toLowerCase())) {
+              return 'Vui lòng nhập URL ảnh bắt đầu bằng http:// hoặc https://';
+            }
+            return null;
+          },
         ),
-        const Text(
-          'Có thể bỏ qua, dung lượng tối đa 10 MB.',
-          style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+        const SizedBox(height: 10),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _propertyImageUrlController,
+          builder: (context, value, _) {
+            final imageUrl = value.text.trim();
+            if (imageUrl.isEmpty) return const SizedBox.shrink();
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                height: 150,
+                width: double.infinity,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, progress) => progress == null
+                      ? child
+                      : const ColoredBox(
+                          color: Color(0xFFF1F5F9),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                  errorBuilder: (_, _, _) => const ColoredBox(
+                    color: Color(0xFFFEF2F2),
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Text(
+                          'Ảnh không tải được. Hãy dùng link ảnh trực tiếp, công khai và bắt đầu bằng https://.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
   }
 
-  Future<void> _pickPropertyImage() async {
-    final image = await _imagePicker.pickImage(source: ImageSource.gallery);
-    if (image == null) return;
-
-    final bytes = await image.readAsBytes();
-    if (bytes.length > 10 * 1024 * 1024) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ảnh khách sạn phải nhỏ hơn 10 MB.')),
-      );
-      return;
-    }
-    if (!mounted) return;
-    setState(() {
-      _propertyImage = image;
-      _propertyImageBytes = bytes;
-    });
-  }
-
   Widget _buildAgreement(AuthProvider auth) {
-    final isSubmitting = _isUploadingImage || auth.isLoading;
+    final isSubmitting = _isSubmitting || auth.isLoading;
     return ListView(
       key: const ValueKey('owner-agreement'),
       padding: const EdgeInsets.all(20),

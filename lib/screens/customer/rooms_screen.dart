@@ -28,9 +28,97 @@ class _RoomsScreenState extends State<RoomsScreen> {
   static const Color _background = Color(0xFFF8F9FF);
 
   int _selected = 0;
+  bool _isUpdatingFavorite = false;
 
   String _formatPrice(int value) {
     return NumberFormat.decimalPattern('vi_VN').format(value);
+  }
+
+  Future<void> _copyPropertyInfo() async {
+    final property = widget.property;
+    final details = <String>[
+      'Khách sạn: ${property.name}',
+      'Địa điểm: ${property.location}',
+      if (property.address.trim().isNotEmpty) 'Địa chỉ: ${property.address}',
+      'Đánh giá: ${property.rating.toStringAsFixed(1)} (${property.reviewCount} nhận xét)',
+      'Giá từ: ${_formatPrice(property.pricePerNight)} đ/đêm',
+    ];
+
+    await Clipboard.setData(ClipboardData(text: details.join('\n')));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Đã sao chép thông tin khách sạn.')),
+    );
+  }
+
+  Future<void> _toggleFavorite(bool isFavorite) async {
+    final user = context.read<AuthProvider>().user;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng đăng nhập để lưu khách sạn yêu thích.')),
+      );
+      return;
+    }
+    if (_isUpdatingFavorite) return;
+
+    setState(() => _isUpdatingFavorite = true);
+    try {
+      final firestoreService = context.read<FirestoreService>();
+      if (isFavorite) {
+        await firestoreService.removeFavorite(
+          userId: user.uid,
+          propertyId: widget.property.id,
+        );
+      } else {
+        await firestoreService.addFavorite(
+          userId: user.uid,
+          propertyId: widget.property.id,
+        );
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isFavorite ? 'Đã bỏ khách sạn khỏi yêu thích.' : 'Đã lưu khách sạn yêu thích.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không thể cập nhật yêu thích: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUpdatingFavorite = false);
+    }
+  }
+
+  Widget _favoriteButton() {
+    final user = context.watch<AuthProvider>().user;
+    final firestoreService = context.read<FirestoreService>();
+
+    Widget button(bool isFavorite) => CircleAvatar(
+      backgroundColor: Colors.white,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        tooltip: isFavorite ? 'Bỏ yêu thích' : 'Thêm vào yêu thích',
+        onPressed: _isUpdatingFavorite ? null : () => _toggleFavorite(isFavorite),
+        icon: Icon(
+          isFavorite ? Icons.favorite : Icons.favorite_border,
+          size: 19,
+          color: isFavorite ? Colors.red : _navy,
+        ),
+      ),
+    );
+
+    if (user == null) return button(false);
+    return StreamBuilder<Set<String>>(
+      stream: firestoreService.getFavoriteIds(user.uid),
+      builder: (context, snapshot) =>
+          button(snapshot.data?.contains(widget.property.id) ?? false),
+    );
   }
 
   @override
@@ -160,7 +248,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
           ),
           IconButton(
             tooltip: 'Chia sẻ',
-            onPressed: () {},
+            onPressed: _copyPropertyInfo,
             icon: const Icon(Icons.share_outlined, size: 20),
           ),
           const CircleAvatar(
@@ -211,22 +299,14 @@ class _RoomsScreenState extends State<RoomsScreen> {
           right: 18,
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: Colors.white,
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: () {},
-                  icon: const Icon(Icons.favorite_border, size: 19),
-                ),
-              ),
+              _favoriteButton(),
               const SizedBox(width: 8),
               CircleAvatar(
                 radius: 18,
                 backgroundColor: Colors.white,
                 child: IconButton(
                   padding: EdgeInsets.zero,
-                  onPressed: () {},
+                    onPressed: _copyPropertyInfo,
                   icon: const Icon(Icons.ios_share_outlined, size: 19),
                 ),
               ),

@@ -225,7 +225,14 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       final userReference = _firestore.collection('users').doc(currentUser.uid);
-      final existingProfile = await userReference.get();
+      final existingProfile = await userReference
+          .get()
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => throw TimeoutException(
+              'Kết nối quá lâu khi tải hồ sơ. Vui lòng kiểm tra mạng rồi thử lại.',
+            ),
+          );
       final profile = existingProfile.data();
       if (!existingProfile.exists ||
           profile?['role']?.toString().toUpperCase() != 'OWNER') {
@@ -265,13 +272,21 @@ class AuthProvider extends ChangeNotifier {
         'ownerAgreementAcceptedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      await batch.commit();
+      await batch.commit().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw TimeoutException(
+          'Lưu hồ sơ quá lâu. Vui lòng kiểm tra kết nối và tải lại trước khi ký lại.',
+        ),
+      );
 
       _propertyId = propertyReference.id;
       _ownerOnboardingComplete = true;
       _ownerOnboardingJustCompleted = true;
       notifyListeners();
       return true;
+    } on TimeoutException catch (error) {
+      _errorMessage = error.message ?? 'Kết nối quá lâu. Vui lòng thử lại.';
+      return false;
     } on FirebaseException catch (error) {
       _errorMessage =
           'Không thể lưu hồ sơ khách sạn: ${error.message ?? error.code}';

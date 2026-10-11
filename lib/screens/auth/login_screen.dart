@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import 'register_screen.dart';
+import 'reset_password_screen.dart';
 
 const _navy = Color(0xFF0F172A);
 const _gold = Color(0xFFD97706);
@@ -93,28 +94,14 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _resetPassword() async {
-    final email = _emailController.text.trim();
-
-    if (email.isEmpty || !email.contains('@')) {
-      _showAuthNotice(
-        'Vui lòng nhập email hợp lệ để đặt lại mật khẩu.',
-        success: false,
-      );
-      return;
-    }
-
-    final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.resetPassword(email: email);
-
-    if (!mounted) return;
-
-    _showAuthNotice(
-      success
-          ? 'Email đặt lại mật khẩu đã được gửi.'
-          : authProvider.errorMessage ??
-                'Không thể gửi email đặt lại mật khẩu.',
-      success: success,
+  void _openResetPassword() {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => ResetPasswordScreen(
+          initialEmail: _emailController.text.trim(),
+        ),
+      ),
     );
   }
 
@@ -438,7 +425,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const Spacer(),
             TextButton(
-              onPressed: _resetPassword,
+              onPressed: authProvider.isLoading ? null : _openResetPassword,
               child: const Text(
                 'Quên mật khẩu?',
                 style: TextStyle(

@@ -3,6 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:luxestay/screens/customer/explore_screen.dart';
 
 void main() {
+  test('search matches typed city characters case-insensitively', () {
+    expect(searchTextContains('Hồ Chí Minh', 'hồ'), isTrue);
+    expect(searchTextContains('Hồ Chí Minh', 'HỒ'), isTrue);
+    expect(searchTextContains('Hồ Chí Minh', 'Đà Nẵng'), isFalse);
+  });
+
   testWidgets('quick category filters select and clear a single category', (
     tester,
   ) async {

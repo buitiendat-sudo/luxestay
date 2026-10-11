@@ -108,6 +108,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   style: TextStyle(color: adminMuted, fontSize: 12),
                 ),
                 const SizedBox(height: 16),
+                _OwnerBookingStats(propertyId: propertyId),
+                const SizedBox(height: 20),
                 RevenuePeriodFilter(
                   value: _period,
                   onChanged: (period) => setState(() {
@@ -224,6 +226,92 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             ),
     );
   }
+}
+
+class _OwnerBookingStats extends StatelessWidget {
+  const _OwnerBookingStats({required this.propertyId});
+
+  final String propertyId;
+
+  @override
+  Widget build(BuildContext context) => StreamBuilder<List<Map<String, dynamic>>>(
+    stream: context.read<FirestoreService>().watchBookingsByProperty(propertyId),
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return _ReportError(message: 'Không thể tải thống kê đặt phòng: ${snapshot.error}');
+      }
+      if (!snapshot.hasData) {
+        return const Padding(
+          padding: EdgeInsets.all(20),
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
+
+      final bookings = snapshot.data!;
+      final statusCounts = <String, int>{};
+      for (final booking in bookings) {
+        final status = booking['status']?.toString().toLowerCase() ?? 'pending';
+        statusCounts.update(status, (count) => count + 1, ifAbsent: () => 1);
+      }
+      final waiting = (statusCounts['pending'] ?? 0) +
+          (statusCounts['waiting'] ?? 0);
+      final confirmed = (statusCounts['confirmed'] ?? 0) +
+          (statusCounts['checked_in'] ?? 0) +
+          (statusCounts['completed'] ?? 0);
+      final cancelled = (statusCounts['cancelled'] ?? 0) +
+          (statusCounts['canceled'] ?? 0);
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const AdminSectionTitle(
+            title: 'Tình hình đặt phòng',
+            subtitle: 'Cập nhật theo thời gian thực',
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _MetricCard(
+                  title: 'Tổng đơn',
+                  value: '${bookings.length}',
+                  icon: Icons.receipt_long_outlined,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MetricCard(
+                  title: 'Chờ xác nhận',
+                  value: '$waiting',
+                  icon: Icons.hourglass_top_rounded,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _MetricCard(
+                  title: 'Đã xác nhận',
+                  value: '$confirmed',
+                  icon: Icons.event_available_outlined,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MetricCard(
+                  title: 'Đã hủy',
+                  value: '$cancelled',
+                  icon: Icons.event_busy_outlined,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _MetricCard extends StatelessWidget {

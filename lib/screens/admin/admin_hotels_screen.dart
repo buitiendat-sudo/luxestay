@@ -36,11 +36,24 @@ class AdminHotelsScreen extends StatelessWidget {
 
           final hotels = snapshot.data!;
 
-          final averageRating = _averageRating(hotels);
-
           final occupancy = _averageOccupancy(hotels);
 
-          return ListView(
+          return StreamBuilder<Map<String, PropertyReviewSummary>>(
+            stream: firestore.watchReviewSummaries(),
+            builder: (context, reviewSnapshot) {
+              final summaries = reviewSnapshot.data ?? const <String, PropertyReviewSummary>{};
+              final displayHotels = hotels.map((hotel) {
+                final summary = summaries[hotel['id']?.toString()];
+                if (summary == null) return hotel;
+                return <String, dynamic>{
+                  ...hotel,
+                  'rating': summary.rating,
+                  'reviewCount': summary.count,
+                };
+              }).toList(growable: false);
+              final averageRating = _averageRating(displayHotels);
+
+              return ListView(
             padding: const EdgeInsets.all(14),
             children: [
               const Text(
@@ -125,7 +138,7 @@ class AdminHotelsScreen extends StatelessWidget {
               if (hotels.isEmpty)
                 const _EmptyHotel()
               else
-                ...hotels.map(
+                ...displayHotels.map(
                   (hotel) => _HotelCard(
                     hotel: hotel,
                     onEdit: () => _showPropertyDialog(
@@ -136,6 +149,8 @@ class AdminHotelsScreen extends StatelessWidget {
                   ),
                 ),
             ],
+              );
+            },
           );
         },
       ),

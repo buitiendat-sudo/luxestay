@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
+import 'notification_center_button.dart';
 
 const adminInk = Color(0xFF171717);
 const adminMuted = Color(0xFF8A8A8A);
@@ -77,15 +78,7 @@ class AdminHeader extends StatelessWidget implements PreferredSizeWidget {
             ),
           ),
           ...actions,
-          IconButton(
-            tooltip: 'Thông báo',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Bạn chưa có thông báo mới.')),
-              );
-            },
-            icon: const Icon(Icons.notifications_none_rounded, color: adminInk),
-          ),
+          const NotificationCenterButton(iconColor: adminInk),
           PopupMenuButton<String>(
             tooltip: 'Tài khoản',
             icon: const CircleAvatar(

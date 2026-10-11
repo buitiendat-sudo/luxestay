@@ -3,6 +3,7 @@
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
 
@@ -11,6 +12,49 @@ const modelName = 'gemini-3.1-flash-lite';
 
 initializeApp();
 const db = getFirestore();
+
+exports.aggregatePropertyReviewStats = onDocumentWritten(
+  {
+    document: 'reviews/{reviewId}',
+    region: 'asia-southeast1',
+    maxInstances: 10,
+  },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    const propertyIds = new Set(
+      [before?.propertyId, after?.propertyId]
+        .map((value) => value?.toString().trim())
+        .filter(Boolean),
+    );
+
+    for (const propertyId of propertyIds) {
+      const propertyReference = db.collection('properties').doc(propertyId);
+      await db.runTransaction(async (transaction) => {
+        const propertySnapshot = await transaction.get(propertyReference);
+        if (!propertySnapshot.exists) return;
+
+        const reviewSnapshot = await transaction.get(
+          db.collection('reviews').where('propertyId', '==', propertyId),
+        );
+        const ratings = reviewSnapshot.docs
+          .map((document) => Number(document.data().rating))
+          .filter(
+            (rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5,
+          );
+        const rating = ratings.length === 0
+          ? 0
+          : ratings.reduce((total, value) => total + value, 0) / ratings.length;
+
+        transaction.update(propertyReference, {
+          rating,
+          reviewCount: ratings.length,
+          updatedAt: new Date(),
+        });
+      });
+    }
+  },
+);
 
 exports.getRevenueReport = onCall(
   {

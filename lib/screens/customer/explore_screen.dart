@@ -16,10 +16,15 @@ import 'package:provider/provider.dart';
 import '../../models/property.dart';
 
 import '../../services/firestore_service.dart';
+import '../../widgets/notification_center_button.dart';
 
 import 'hotel_detail_screen.dart';
 
 import 'ai_travel_screen.dart';
+
+bool searchTextContains(String text, String query) => text
+  .toLowerCase()
+  .contains(query.trim().toLowerCase());
 
 
 
@@ -64,6 +69,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String _searchQuery = '';
 
   String _selectedDestination = 'Tất cả điểm đến';
+  final TextEditingController _destinationSearchController =
+      TextEditingController();
 
   String _selectedCategory = 'Tất cả';
 
@@ -106,6 +113,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   // Keep the Firestore stream stable. Recreating it inside build() can
   // resubscribe whenever setState() runs and cause jank on Flutter Web.
   late final Stream<List<Property>> _propertiesStream;
+  StreamSubscription<Map<String, PropertyReviewSummary>>?
+  _reviewSummarySubscription;
+  Map<String, PropertyReviewSummary> _reviewSummaries = {};
 
   final PageController _promotionController = PageController(
     viewportFraction: 0.93,
@@ -183,7 +193,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     'Hà Nội',
 
-    'TP. Hồ Chí Minh',
+    'Hồ Chí Minh',
 
   ];
 
@@ -217,6 +227,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
     super.initState();
 
     _propertiesStream = context.read<FirestoreService>().getProperties();
+    _reviewSummarySubscription = context
+        .read<FirestoreService>()
+        .watchReviewSummaries()
+        .listen((summaries) {
+          if (!mounted) return;
+          setState(() => _reviewSummaries = summaries);
+        });
 
     _promotionTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || !_promotionController.hasClients) return;
@@ -325,6 +342,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   void dispose() {
 
     _favoriteSubscription?.cancel();
+    _reviewSummarySubscription?.cancel();
+    _destinationSearchController.dispose();
 
     _promotionTimer?.cancel();
 
@@ -451,14 +470,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
         final location = property.location.toLowerCase();
 
         final category = property.category.toLowerCase();
+        final address = property.address.toLowerCase();
 
 
 
-        return name.contains(query) ||
+        return searchTextContains(name, query) ||
 
-            location.contains(query) ||
+          searchTextContains(location, query) ||
 
-            category.contains(query);
+          searchTextContains(category, query) ||
+          searchTextContains(address, query);
 
       }).toList();
 
@@ -1068,7 +1089,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
               ),
 
-              const Icon(Icons.notifications_none_rounded, color: _navy),
+              const NotificationCenterButton(iconColor: _navy),
 
               const SizedBox(width: 16),
 
@@ -1296,7 +1317,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
               _selectedDestination == 'Tất cả điểm đến'
 
-                  ? 'Đà Nẵng, Việt Nam'
+                  ? (_searchQuery.trim().isEmpty
+                    ? 'Đà Nẵng, Việt Nam'
+                    : _searchQuery.trim())
 
                   : _selectedDestination,
 
@@ -2232,7 +2255,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
                             Text(
 
-                              property.rating.toStringAsFixed(1),
+                                (_reviewSummaries[property.id]?.rating ??
+                                    property.rating)
+                                  .toStringAsFixed(1),
 
                               style: const TextStyle(
 
@@ -2524,6 +2549,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Future<void> _showDestinationPicker() async {
 
+    _destinationSearchController.text = _searchQuery;
+
     final selected = await showModalBottomSheet<String>(
 
       context: context,
@@ -2562,6 +2589,25 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
               ),
 
+              TextField(
+                controller: _destinationSearchController,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Nhập địa điểm, ví dụ: Hồ',
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) => setState(() {
+                  _searchQuery = value;
+                  if (value.trim().isNotEmpty) {
+                    _selectedDestination = 'Tất cả điểm đến';
+                  }
+                }),
+                onSubmitted: (_) => Navigator.pop(context),
+              ),
+              const SizedBox(height: 8),
               ..._destinations.map((destination) {
 
                 return ListTile(
@@ -2603,8 +2649,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
       },
 
     );
-
-
 
     if (selected == null) {
 

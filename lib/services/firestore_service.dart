@@ -54,6 +54,12 @@ class FirestoreService {
         .map(_documentsToMaps);
   }
 
+  Stream<Map<String, PropertyReviewSummary>> watchReviewSummaries() {
+    return reviews.snapshots().map(
+      (snapshot) => summarizePropertyReviews(_documentsToMaps(snapshot)),
+    );
+  }
+
   Future<void> submitPropertyReview({
     required String userId,
     required String userName,
@@ -323,6 +329,13 @@ class FirestoreService {
         .map(_documentsToMaps);
   }
 
+  Stream<List<Map<String, dynamic>>> watchBookingsByUser(String userId) {
+    return bookings
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map(_documentsToMaps);
+  }
+
   Stream<List<Map<String, dynamic>>> watchStaffByProperty(String propertyId) {
     return users
         .where('propertyId', isEqualTo: propertyId)
@@ -575,6 +588,36 @@ class RevenueReportTrendPoint {
 
   final String label;
   final int revenue;
+}
+
+class PropertyReviewSummary {
+  const PropertyReviewSummary({required this.rating, required this.count});
+
+  final double rating;
+  final int count;
+}
+
+Map<String, PropertyReviewSummary> summarizePropertyReviews(
+  Iterable<Map<String, dynamic>> reviews,
+) {
+  final totals = <String, (double, int)>{};
+  for (final review in reviews) {
+    final propertyId = review['propertyId']?.toString().trim() ?? '';
+    final rating = (review['rating'] as num?)?.toDouble();
+    if (propertyId.isEmpty || rating == null || rating < 1 || rating > 5) {
+      continue;
+    }
+    final current = totals[propertyId] ?? (0.0, 0);
+    totals[propertyId] = (current.$1 + rating, current.$2 + 1);
+  }
+
+  return {
+    for (final entry in totals.entries)
+      entry.key: PropertyReviewSummary(
+        rating: entry.value.$1 / entry.value.$2,
+        count: entry.value.$2,
+      ),
+  };
 }
 
 /// Builds the revenue payload shared by the admin and owner dashboards.

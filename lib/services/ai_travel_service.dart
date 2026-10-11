@@ -122,10 +122,7 @@ class AiTravelService {
               .contains(destinationText);
     }).toList();
 
-    final sourceProperties =
-        matchingProperties.isEmpty
-            ? properties
-            : matchingProperties;
+    final sourceProperties = matchingProperties;
 
     final inventory =
         <Map<String, dynamic>>[];

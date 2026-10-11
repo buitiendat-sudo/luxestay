@@ -8,7 +8,7 @@ import '../../models/ai_travel_plan.dart';
 import '../../models/property.dart';
 import '../../services/ai_travel_service.dart';
 import '../../services/firestore_service.dart';
-import 'hotel_detail_screen.dart';
+import 'rooms_screen.dart';
 
 class AiTravelScreen extends StatefulWidget {
   const AiTravelScreen({super.key});

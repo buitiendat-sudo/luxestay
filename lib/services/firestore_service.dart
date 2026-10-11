@@ -101,22 +101,6 @@ class FirestoreService {
     return properties.doc(propertyId).update(_withUpdatedTimestamp(data));
   }
 
-  Future<void> updatePropertyCoordinates({
-    required String propertyId,
-    required double latitude,
-    required double longitude,
-    required String formattedAddress,
-    required String locationType,
-  }) {
-    return updateProperty(propertyId, {
-      'latitude': latitude,
-      'longitude': longitude,
-      'geocodedAddress': formattedAddress,
-      'geocodingLocationType': locationType,
-      'geocodedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
   Future<void> deleteProperty(String propertyId) {
     return properties.doc(propertyId).delete();
   }

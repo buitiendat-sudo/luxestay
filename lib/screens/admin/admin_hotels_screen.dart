@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../../services/firestore_service.dart';
-import '../../services/google_geocoding_service.dart';
 import '../../widgets/admin_chrome.dart';
 
 class AdminHotelsScreen extends StatelessWidget {
@@ -69,10 +67,6 @@ class AdminHotelsScreen extends StatelessWidget {
               ),
 
               const SizedBox(height: 14),
-
-              _GeocodePropertiesButton(hotels: hotels),
-
-              const SizedBox(height: 18),
 
               SizedBox(
                 height: 122,
@@ -528,209 +522,6 @@ class _HotelCard extends StatelessWidget {
     }
 
     return NumberFormat.compact(locale: 'vi').format(number);
-  }
-}
-
-class _GeocodePropertiesButton extends StatefulWidget {
-  const _GeocodePropertiesButton({required this.hotels});
-
-  final List<Map<String, dynamic>> hotels;
-
-  @override
-  State<_GeocodePropertiesButton> createState() =>
-      _GeocodePropertiesButtonState();
-}
-
-class _GeocodePropertiesButtonState extends State<_GeocodePropertiesButton> {
-  final GoogleGeocodingService _geocodingService = GoogleGeocodingService();
-  bool _isRunning = false;
-  int _completed = 0;
-  int _total = 0;
-
-  @override
-  void dispose() {
-    _geocodingService.close();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: _isRunning ? null : _geocodeMissingProperties,
-        icon: _isRunning
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.add_location_alt_outlined),
-        label: Text(
-          _isRunning
-              ? 'Đang lấy tọa độ ($_completed/$_total)'
-              : 'Lấy tọa độ resort chưa có',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _geocodeMissingProperties() async {
-    if (!_geocodingService.isConfigured) {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Cần cấu hình Google Maps API'),
-          content: const Text(
-            'Bật Geocoding API trong Google Cloud và chạy ứng dụng với '
-            '--dart-define=GOOGLE_MAPS_API_KEY=YOUR_API_KEY. '
-            'Hãy giới hạn API key theo ứng dụng và chỉ bật Geocoding API.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Đóng'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
-    final firestore = context.read<FirestoreService>();
-    final pending = widget.hotels
-        .where((hotel) => !_hasCoordinates(hotel))
-        .toList(growable: false);
-    if (pending.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tất cả resort đã có tọa độ.')),
-      );
-      return;
-    }
-
-    setState(() {
-      _isRunning = true;
-      _completed = 0;
-      _total = pending.length;
-    });
-
-    var updated = 0;
-    final failures = <String>[];
-
-    var completed = 0;
-
-    Future<void> processHotel(Map<String, dynamic> hotel) async {
-      final name = hotel['name']?.toString().trim() ?? '';
-      final id = hotel['id']?.toString() ?? '';
-
-      try {
-        if (id.isEmpty) {
-          throw const GoogleGeocodingException(
-            'Không tìm thấy mã resort trong Firestore.',
-          );
-        }
-
-        final coordinates = await _geocodingService.geocodeHotel(
-          name: name,
-          location: hotel['location']?.toString() ?? '',
-          address: hotel['address']?.toString(),
-        );
-        await firestore.updatePropertyCoordinates(
-          propertyId: id,
-          latitude: coordinates.latitude,
-          longitude: coordinates.longitude,
-          formattedAddress: coordinates.formattedAddress,
-          locationType: coordinates.locationType,
-        );
-        updated++;
-      } on GoogleGeocodingException catch (error) {
-        failures.add('$name: ${error.message}');
-      } on http.ClientException catch (error) {
-        failures.add('$name: Lỗi kết nối tới Google (${error.message}).');
-      } on FirebaseException catch (error) {
-        failures.add(
-          '$name: Không lưu được tọa độ vào Firestore '
-          '(${error.message ?? error.code}).',
-        );
-      } catch (error) {
-        failures.add('$name: Lỗi không xác định ($error).');
-      } finally {
-        completed++;
-        if (mounted) {
-          setState(() => _completed = completed);
-        }
-      }
-    }
-
-    try {
-      for (var offset = 0; offset < pending.length; offset += 4) {
-        if (!mounted) return;
-        final batch = pending.skip(offset).take(4);
-        await Future.wait(batch.map(processHotel));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isRunning = false);
-      }
-    }
-
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hoàn tất lấy tọa độ'),
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Đã cập nhật $updated/${pending.length} resort.'),
-              if (failures.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Không xử lý được ${failures.length} resort:',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  height: 180,
-                  child: ListView.builder(
-                    itemCount: failures.length,
-                    itemBuilder: (context, index) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        failures[index],
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Đóng'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  bool _hasCoordinates(Map<String, dynamic> hotel) {
-    final latitude = hotel['latitude'];
-    final longitude = hotel['longitude'];
-    return latitude is num &&
-        longitude is num &&
-        latitude.isFinite &&
-        longitude.isFinite &&
-        latitude >= -90 &&
-        latitude <= 90 &&
-        longitude >= -180 &&
-        longitude <= 180;
   }
 }
 

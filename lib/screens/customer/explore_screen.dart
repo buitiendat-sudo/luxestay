@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 
 
@@ -18,7 +19,7 @@ import '../../models/property.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/notification_center_button.dart';
 
-import 'hotel_detail_screen.dart';
+import 'rooms_screen.dart';
 
 import 'ai_travel_screen.dart';
 
@@ -74,7 +75,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   String _selectedCategory = 'Tất cả';
 
-  String _sortOption = 'Đề xuất';
+  String _sortOption = 'Đánh giá cao nhất';
+  RangeValues? _priceRange;
+  final Set<String> _selectedAmenities = {};
+  double? _minimumRating;
 
 
 
@@ -200,15 +204,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
 
   final List<String> _sortOptions = const [
-
-    'Đề xuất',
-
     'Giá thấp nhất',
-
     'Giá cao nhất',
-
     'Đánh giá cao nhất',
-
   ];
 
 
@@ -567,6 +565,30 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
 
 
+    if (_priceRange case final priceRange?) {
+      result = result.where((property) {
+        final price = property.pricePerNight.toDouble();
+        return price >= priceRange.start && price <= priceRange.end;
+      }).toList();
+    }
+
+    if (_selectedAmenities.isNotEmpty) {
+      result = result.where((property) {
+        return _selectedAmenities.every(
+          (selected) => property.amenities.any(
+            (amenity) => amenity.toLowerCase() == selected.toLowerCase(),
+          ),
+        );
+      }).toList();
+    }
+
+    if (_minimumRating case final minimumRating?) {
+      result = result.where((property) {
+        final rating = _reviewSummaries[property.id]?.rating ?? property.rating;
+        return rating >= minimumRating;
+      }).toList();
+    }
+
     // SORT
 
     switch (_sortOption) {
@@ -588,18 +610,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
 
       case 'Đánh giá cao nhất':
-
-        result.sort((a, b) => b.rating.compareTo(a.rating));
+        result.sort((a, b) {
+          final ratingA = _reviewSummaries[a.id]?.rating ?? a.rating;
+          final ratingB = _reviewSummaries[b.id]?.rating ?? b.rating;
+          return ratingB.compareTo(ratingA);
+        });
 
         break;
 
 
 
-      case 'Đề xuất':
-
       default:
-
-        result.sort((a, b) => b.rating.compareTo(a.rating));
+        result.sort((a, b) {
+          final ratingA = _reviewSummaries[a.id]?.rating ?? a.rating;
+          final ratingB = _reviewSummaries[b.id]?.rating ?? b.rating;
+          return ratingB.compareTo(ratingA);
+        });
 
         break;
 
@@ -957,7 +983,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
                 SliverToBoxAdapter(
 
-                  child: _buildResultHeader(filteredProperties.length),
+                  child: _buildResultHeader(
+                    filteredProperties.length,
+                    properties,
+                  ),
 
                 ),
 
@@ -1778,7 +1807,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
 
 
-  Widget _buildResultHeader(int count) {
+  Widget _buildResultHeader(int count, List<Property> properties) {
 
     final hasFilter =
 
@@ -1790,7 +1819,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
         _businessTrip ||
 
-        _familyTrip;
+        _familyTrip ||
+        _priceRange != null ||
+        _selectedAmenities.isNotEmpty ||
+        _minimumRating != null;
 
 
 
@@ -1830,65 +1862,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
 
 
-              InkWell(
-
-                borderRadius: BorderRadius.circular(8),
-
-                onTap: _showSortPicker,
-
-                child: Container(
-
-                  padding: const EdgeInsets.symmetric(
-
-                    horizontal: 9,
-
-                    vertical: 6,
-
-                  ),
-
-                  decoration: BoxDecoration(
-
-                    color: Colors.white,
-
-                    borderRadius: BorderRadius.circular(8),
-
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-
-                  ),
-
-                  child: Row(
-
-                    mainAxisSize: MainAxisSize.min,
-
-                    children: [
-
-                      const Icon(Icons.swap_vert, size: 15, color: _navy),
-
-                      const SizedBox(width: 4),
-
-                      Text(
-
-                        _sortOption,
-
-                        style: const TextStyle(
-
-                          fontSize: 9,
-
-                          color: _navy,
-
-                          fontWeight: FontWeight.w700,
-
-                        ),
-
-                      ),
-
-                    ],
-
-                  ),
-
+              OutlinedButton.icon(
+                onPressed: () => _showPropertyFilters(properties),
+                icon: const Icon(Icons.tune_rounded, size: 16),
+                label: Text(
+                  _priceRange == null &&
+                          _selectedAmenities.isEmpty &&
+                          _minimumRating == null
+                      ? 'Bộ lọc'
+                      : 'Bộ lọc (${(_priceRange == null ? 0 : 1) + _selectedAmenities.length + (_minimumRating == null ? 0 : 1)})',
                 ),
-
               ),
+
 
             ],
 
@@ -2670,117 +2655,192 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   // ============================================================
 
-  // SORT PICKER
-
-  // ============================================================
-
-
-
-  Future<void> _showSortPicker() async {
-
-    final selected = await showModalBottomSheet<String>(
-
-      context: context,
-
-      backgroundColor: Colors.white,
-
-      shape: const RoundedRectangleBorder(
-
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-
-      ),
-
-      builder: (context) {
-
-        return SafeArea(
-
-          child: ListView(
-
-            shrinkWrap: true,
-
-            padding: const EdgeInsets.symmetric(vertical: 12),
-
-            children: [
-
-              const Padding(
-
-                padding: EdgeInsets.fromLTRB(20, 10, 20, 14),
-
-                child: Text(
-
-                  'Sắp xếp',
-
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-
-                ),
-
-              ),
-
-              ..._sortOptions.map((option) {
-
-                return ListTile(
-
-                  leading: Icon(
-
-                    option == _sortOption
-
-                        ? Icons.radio_button_checked
-
-                        : Icons.radio_button_off,
-
-                    color: option == _sortOption ? _navy : Colors.grey,
-
-                  ),
-
-                  title: Text(option),
-
-                  onTap: () {
-
-                    Navigator.pop(context, option);
-
-                  },
-
-                );
-
-              }),
-
-            ],
-
-          ),
-
-        );
-
-      },
-
-    );
-
-
-
-    if (selected == null) {
-
-      return;
-
-    }
-
-
-
-    setState(() {
-
-      _sortOption = selected;
-
-    });
-
-  }
-
-
-
-  // ============================================================
-
   // RESET
 
   // ============================================================
 
 
+
+  RangeValues _priceBounds(List<Property> properties) {
+    final prices = properties
+        .map((property) => property.pricePerNight.toDouble())
+        .where((price) => price >= 0)
+        .toList();
+    if (prices.isEmpty) return const RangeValues(0, 24000000);
+    final minimum = prices.reduce(math.min);
+    final maximum = prices.reduce(math.max);
+    return RangeValues(minimum, maximum <= minimum ? minimum + 1 : maximum);
+  }
+
+  void _showPropertyFilters(List<Property> properties) {
+    final bounds = _priceBounds(properties);
+    final locations = <String>{
+      ..._destinations.where((item) => item != 'Tất cả điểm đến'),
+      ...properties
+          .map((property) => property.location.trim())
+          .where((location) => location.isNotEmpty),
+    }.toList()..sort();
+    final amenities = properties
+        .expand((property) => property.amenities)
+        .map((amenity) => amenity.trim())
+        .where((amenity) => amenity.isNotEmpty)
+        .toSet()
+        .toList()..sort();
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          void update(VoidCallback change) {
+            setState(change);
+            setSheetState(() {});
+          }
+
+          final currentRange = _priceRange == null
+              ? bounds
+              : RangeValues(
+                  _priceRange!.start.clamp(bounds.start, bounds.end).toDouble(),
+                  _priceRange!.end.clamp(bounds.start, bounds.end).toDouble(),
+                );
+          final currency = NumberFormat.decimalPattern('vi_VN');
+          final matchCount = _filterProperties(properties).length;
+
+          return SafeArea(
+            child: SizedBox(
+              height: MediaQuery.sizeOf(context).height * 0.82,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 8, 20, 12),
+                    child: Text(
+                      'Bộ lọc khách sạn',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      children: [
+                        const Text('Khoảng giá mỗi đêm', style: TextStyle(fontWeight: FontWeight.w700)),
+                        RangeSlider(
+                          values: currentRange,
+                          min: bounds.start,
+                          max: bounds.end,
+                          divisions: 48,
+                          labels: RangeLabels(
+                            currency.format(currentRange.start.round()),
+                            currency.format(currentRange.end.round()),
+                          ),
+                          onChanged: (value) => update(() => _priceRange = value),
+                        ),
+                        Row(
+                          children: [
+                            Expanded(child: Text('${currency.format(currentRange.start.round())} đ')),
+                            Text('${currency.format(currentRange.end.round())} đ'),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        const Text('Khu vực', style: TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedDestination,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: 'Tất cả điểm đến',
+                              child: Text('Tất cả khu vực'),
+                            ),
+                            ...locations.map(
+                              (location) => DropdownMenuItem(
+                                value: location,
+                                child: Text(location),
+                              ),
+                            ),
+                          ],
+                          onChanged: (location) => update(
+                            () => _selectedDestination = location ?? 'Tất cả điểm đến',
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        const Text('Đánh giá tối thiểu', style: TextStyle(fontWeight: FontWeight.w700)),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            (label: 'Bất kỳ', value: null),
+                            (label: '3+ sao', value: 3.0),
+                            (label: '4+ sao', value: 4.0),
+                            (label: '4.5+ sao', value: 4.5),
+                          ].map((option) => ChoiceChip(
+                            label: Text(option.label),
+                            selected: _minimumRating == option.value,
+                            onSelected: (_) => update(() => _minimumRating = option.value),
+                          )).toList(),
+                        ),
+                        if (amenities.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          const Text('Tiện nghi', style: TextStyle(fontWeight: FontWeight.w700)),
+                          Wrap(
+                            spacing: 8,
+                            children: amenities.map((amenity) => FilterChip(
+                              label: Text(amenity),
+                              selected: _selectedAmenities.contains(amenity),
+                              onSelected: (selected) => update(() {
+                                if (selected) {
+                                  _selectedAmenities.add(amenity);
+                                } else {
+                                  _selectedAmenities.remove(amenity);
+                                }
+                              }),
+                            )).toList(),
+                          ),
+                        ],
+                        const SizedBox(height: 18),
+                        const Text('Sắp xếp', style: TextStyle(fontWeight: FontWeight.w700)),
+                        DropdownButtonFormField<String>(
+                          initialValue: _sortOption,
+                          decoration: const InputDecoration(border: OutlineInputBorder()),
+                          items: _sortOptions.map((option) => DropdownMenuItem(
+                            value: option,
+                            child: Text(option),
+                          )).toList(),
+                          onChanged: (option) => update(() => _sortOption = option ?? 'Đánh giá cao nhất'),
+                        ),
+                        const SizedBox(height: 18),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                    child: Row(
+                      children: [
+                        TextButton(
+                          onPressed: () => update(_resetFilters),
+                          child: const Text('Xóa bộ lọc'),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () => Navigator.pop(sheetContext),
+                            child: Text('Xem $matchCount kết quả'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   void _resetFilters() {
 
@@ -2792,7 +2852,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
       _selectedCategory = 'Tất cả';
 
-      _sortOption = 'Đề xuất';
+      _sortOption = 'Đánh giá cao nhất';
+      _priceRange = null;
+      _selectedAmenities.clear();
+      _minimumRating = null;
 
       _businessTrip = false;
 

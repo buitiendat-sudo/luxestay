@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/property.dart';
 import '../../services/firestore_service.dart';
-import 'hotel_detail_screen.dart';
+import 'rooms_screen.dart';
 
 class FavoritesScreen extends StatelessWidget {
   const FavoritesScreen({super.key});

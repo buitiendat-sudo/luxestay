@@ -37,6 +37,8 @@ dependencies:
   firebase_auth: ^5.3.1
   cloud_functions: ^5.6.2
   firebase_ai: ^2.3.0
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.1
 
   # UI
   google_fonts: ^6.2.1
@@ -52,7 +54,6 @@ dependencies:
   provider: ^6.1.2
   pdf: ^3.13.1
   printing: ^5.15.1
-  http: ^1.6.0
   url_launcher: ^6.3.2
   firebase_app_check: ^0.3.2+10
   google_sign_in: ^7.2.0

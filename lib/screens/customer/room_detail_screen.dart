@@ -1,10 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../models/property.dart';
 import '../../models/room.dart';
 import 'booking_screen.dart';
+import 'full_screen_map_screen.dart';
 
 class RoomDetailScreen extends StatefulWidget {
   const RoomDetailScreen({
@@ -31,6 +34,53 @@ class _RoomDetailScreenState
 
   Room get room => widget.room;
   Property get property => widget.property;
+
+  // Tọa độ trung tâm dự phòng theo địa danh trong property.location.
+  // Để ghim chính xác từng resort, nên lưu latitude/longitude riêng trong Firestore.
+  LatLng get _mapCenter {
+    final location = property.location.toLowerCase();
+    if (location.contains('phú quốc') || location.contains('phu quoc')) {
+      return const LatLng(10.2899, 103.9840);
+    }
+    if (location.contains('mộc châu') || location.contains('moc chau')) {
+      return const LatLng(20.8412, 104.7070);
+    }
+    if (location.contains('đà nẵng') || location.contains('da nang')) {
+      return const LatLng(16.0544, 108.2022);
+    }
+    if (location.contains('hà nội') || location.contains('ha noi')) {
+      return const LatLng(21.0278, 105.8342);
+    }
+    if (location.contains('hồ chí minh') ||
+        location.contains('ho chi minh') ||
+        location.contains('sài gòn') ||
+        location.contains('sai gon')) {
+      return const LatLng(10.8231, 106.6297);
+    }
+    if (location.contains('nha trang')) {
+      return const LatLng(12.2388, 109.1967);
+    }
+    if (location.contains('đà lạt') || location.contains('da lat')) {
+      return const LatLng(11.9404, 108.4583);
+    }
+    if (location.contains('hạ long') || location.contains('ha long')) {
+      return const LatLng(20.9712, 107.0448);
+    }
+    return const LatLng(16.0471, 108.2068);
+  }
+
+  void _openFullScreenMap() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => FullScreenMapScreen(
+          name: property.name,
+          address: property.location,
+          latitude: _mapCenter.latitude,
+          longitude: _mapCenter.longitude,
+        ),
+      ),
+    );
+  }
 
   // ============================================================
   // FORMAT PRICE
@@ -302,6 +352,92 @@ class _RoomDetailScreenState
             ],
 
             const SizedBox(height: 28),
+
+            // ==================================================
+            // RESORT MAP
+            // ==================================================
+
+            Text(
+              'Vị trí resort',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: SizedBox(
+                height: 180,
+                width: double.infinity,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: FlutterMap(
+                          options: MapOptions(
+                            initialCenter: _mapCenter,
+                            initialZoom: 12,
+                            interactionOptions: const InteractionOptions(
+                              flags: InteractiveFlag.none,
+                            ),
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate:
+                                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName: 'com.example.luxestay',
+                            ),
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: _mapCenter,
+                                  width: 40,
+                                  height: 44,
+                                  child: const Icon(
+                                    Icons.location_on,
+                                    color: Colors.red,
+                                    size: 40,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: Material(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        child: InkWell(
+                          onTap: _openFullScreenMap,
+                          child: const Center(
+                            child: Icon(
+                              Icons.open_in_full,
+                              color: Colors.white,
+                              size: 32,
+                              shadows: [
+                                Shadow(color: Colors.black54, blurRadius: 8),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openFullScreenMap,
+                icon: const Icon(Icons.map_outlined),
+                label: const Text('Khám phá trên bản đồ'),
+              ),
+            ),
+            const SizedBox(height: 24),
 
             // ==================================================
             // BOOKING INFORMATION
@@ -707,7 +843,6 @@ class _RoomDetailScreenState
     );
   }
 }
-
 // ================================================================
 // ROOM IMAGE
 // ================================================================
